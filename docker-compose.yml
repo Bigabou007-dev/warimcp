@@ -1,0 +1,60 @@
+version: "3.9"
+
+services:
+  warimcp:
+    build: .
+    container_name: warimcp
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      WARIMCP_TRANSPORT: http
+      DATABASE_URL: postgresql://warimcp:${DB_PASSWORD}@warimcp_db:5432/warimcp
+    networks:
+      - npm_proxy
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 512M
+        reservations:
+          cpus: "0.25"
+          memory: 256M
+    depends_on:
+      warimcp_db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  warimcp_db:
+    image: postgres:16-alpine
+    container_name: warimcp_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: warimcp
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: warimcp
+    volumes:
+      - warimcp_db_data:/var/lib/postgresql/data
+    networks:
+      - npm_proxy
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 256M
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U warimcp"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  warimcp_db_data:
+
+networks:
+  npm_proxy:
+    external: true
