@@ -26,11 +26,11 @@ async function main() {
   }
 
   if (transport === "http") {
-    console.log(`WariMCP running in HTTP-only mode on port ${config.WARIMCP_PORT}`);
+    console.error(`WariMCP running in HTTP-only mode on port ${config.WARIMCP_PORT}`);
   } else if (transport === "stdio") {
     console.error("WariMCP running in MCP stdio-only mode");
   } else {
-    console.log(`WariMCP running in dual mode — HTTP:${config.WARIMCP_PORT} + MCP stdio`);
+    console.error(`WariMCP running in dual mode — HTTP:${config.WARIMCP_PORT} + MCP stdio`);
   }
 }
 

@@ -4,8 +4,15 @@ import type { Request, Response, NextFunction } from "express";
 import type { PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import { apiKeys } from "../../db/schema.js";
 
+/** Extended request properties set by auth middleware */
+export interface AuthenticatedRequest extends Request {
+  apiKeyLabel?: string;
+  apiKeyPermissions?: string[];
+  apiKeyRateLimit?: number;
+}
+
 export function createAuthMiddleware(db: PostgresJsDatabase) {
-  return async (req: Request, res: Response, next: NextFunction) => {
+  return async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     const apiKey = req.headers["x-api-key"] as string | undefined;
 
     if (!apiKey) {
@@ -33,9 +40,9 @@ export function createAuthMiddleware(db: PostgresJsDatabase) {
       .catch(() => {});
 
     // Attach key info to request
-    (req as any).apiKeyLabel = key.label;
-    (req as any).apiKeyPermissions = key.permissions;
-    (req as any).apiKeyRateLimit = key.rateLimitPerMinute;
+    req.apiKeyLabel = key.label;
+    req.apiKeyPermissions = key.permissions ?? undefined;
+    req.apiKeyRateLimit = key.rateLimitPerMinute ?? undefined;
 
     next();
   };

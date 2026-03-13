@@ -1,4 +1,5 @@
-import type { Request, Response, NextFunction } from "express";
+import type { Response, NextFunction } from "express";
+import type { AuthenticatedRequest } from "./auth.js";
 
 const buckets = new Map<string, { tokens: number; lastRefill: number }>();
 
@@ -15,9 +16,9 @@ setInterval(() => {
   }
 }, 300_000).unref();
 
-export function rateLimitMiddleware(req: Request, res: Response, next: NextFunction) {
+export function rateLimitMiddleware(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   const apiKey = req.headers["x-api-key"] as string || "anonymous";
-  const limit = (req as any).apiKeyRateLimit || DEFAULT_RATE;
+  const limit = req.apiKeyRateLimit || DEFAULT_RATE;
   const now = Date.now();
 
   let bucket = buckets.get(apiKey);

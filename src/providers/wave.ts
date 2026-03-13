@@ -1,5 +1,6 @@
 import { getConfig } from "../config.js";
 import { withRetry } from "./retry.js";
+import { HttpError } from "../utils/http-error.js";
 import type {
   BaseProvider,
   PaymentInitiateInput,
@@ -61,18 +62,16 @@ export class WaveProvider implements BaseProvider {
       });
 
       if (!res.ok) {
-        const err = new Error(`Wave HTTP ${res.status}: ${await res.text()}`);
-        (err as any).status = res.status;
-        throw err;
+        throw new HttpError(`Wave HTTP ${res.status}: ${await res.text()}`, res.status);
       }
 
-      return res.json() as Promise<any>;
+      return res.json() as Promise<Record<string, unknown>>;
     });
 
     return {
-      providerReference: data?.id || "",
-      paymentUrl: data?.wave_launch_url || "",
-      status: data?.payment_status || "pending",
+      providerReference: (data?.id as string) || "",
+      paymentUrl: (data?.wave_launch_url as string) || "",
+      status: (data?.payment_status as string) || "pending",
       raw: data,
     };
   }
@@ -90,12 +89,10 @@ export class WaveProvider implements BaseProvider {
       });
 
       if (!res.ok) {
-        const err = new Error(`Wave verify HTTP ${res.status}`);
-        (err as any).status = res.status;
-        throw err;
+        throw new HttpError(`Wave verify HTTP ${res.status}`, res.status);
       }
 
-      return res.json() as Promise<any>;
+      return res.json() as Promise<Record<string, unknown>>;
     });
 
     const waveStatus = data?.payment_status;
@@ -108,7 +105,7 @@ export class WaveProvider implements BaseProvider {
       providerReference,
       status,
       amount: data?.amount ? Number(data.amount) : undefined,
-      currency: data?.currency,
+      currency: data?.currency as string | undefined,
       paymentMethod: "WAVE_MOBILE_MONEY",
       raw: data,
     };
@@ -136,17 +133,15 @@ export class WaveProvider implements BaseProvider {
       });
 
       if (!res.ok) {
-        const err = new Error(`Wave payout HTTP ${res.status}: ${await res.text()}`);
-        (err as any).status = res.status;
-        throw err;
+        throw new HttpError(`Wave payout HTTP ${res.status}: ${await res.text()}`, res.status);
       }
 
-      return res.json() as Promise<any>;
+      return res.json() as Promise<Record<string, unknown>>;
     });
 
     return {
-      providerReference: data?.id || "",
-      status: data?.status || "pending",
+      providerReference: (data?.id as string) || "",
+      status: (data?.status as string) || "pending",
       raw: data,
     };
   }
@@ -164,12 +159,10 @@ export class WaveProvider implements BaseProvider {
       });
 
       if (!res.ok) {
-        const err = new Error(`Wave payout verify HTTP ${res.status}`);
-        (err as any).status = res.status;
-        throw err;
+        throw new HttpError(`Wave payout verify HTTP ${res.status}`, res.status);
       }
 
-      return res.json() as Promise<any>;
+      return res.json() as Promise<Record<string, unknown>>;
     });
 
     let status: PayoutVerifyResult["status"] = "pending";

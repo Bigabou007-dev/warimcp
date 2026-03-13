@@ -4,6 +4,7 @@ import type { PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import { webhookEvents } from "../db/schema.js";
 import { getConfig } from "../config.js";
 import { withRetry } from "../providers/retry.js";
+import { HttpError } from "../utils/http-error.js";
 
 export interface RelayPayload {
   event: string;
@@ -47,9 +48,7 @@ export async function relayWebhook(
         });
 
         if (!res.ok) {
-          const err = new Error(`Relay failed: HTTP ${res.status}`);
-          (err as any).status = res.status;
-          throw err;
+          throw new HttpError(`Relay failed: HTTP ${res.status}`, res.status);
         }
       },
       { maxRetries: 3, baseDelayMs: 2000 }

@@ -162,7 +162,7 @@ export function createHttpServer(db: PostgresJsDatabase, port: number) {
   });
 
   const server = app.listen(port, () => {
-    console.log(`WariMCP HTTP server listening on port ${port}`);
+    console.error(`WariMCP HTTP server listening on port ${port}`);
   });
 
   return server;

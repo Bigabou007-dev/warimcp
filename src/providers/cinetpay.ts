@@ -1,5 +1,6 @@
 import { getConfig } from "../config.js";
 import { withRetry } from "./retry.js";
+import { HttpError } from "../utils/http-error.js";
 import type {
   BaseProvider,
   PaymentInitiateInput,
@@ -71,17 +72,16 @@ export class CinetPayProvider implements BaseProvider {
       });
 
       if (!res.ok) {
-        const err = new Error(`CinetPay HTTP ${res.status}: ${await res.text()}`);
-        (err as any).status = res.status;
-        throw err;
+        throw new HttpError(`CinetPay HTTP ${res.status}: ${await res.text()}`, res.status);
       }
 
-      return res.json() as Promise<any>;
+      return res.json() as Promise<Record<string, unknown>>;
     });
 
+    const inner = data?.data as Record<string, unknown> | undefined;
     return {
       providerReference: txId,
-      paymentUrl: data?.data?.payment_url || "",
+      paymentUrl: (inner?.payment_url as string) || "",
       status: data?.code === "201" ? "pending" : "failed",
       raw: data,
     };
@@ -103,15 +103,14 @@ export class CinetPayProvider implements BaseProvider {
       });
 
       if (!res.ok) {
-        const err = new Error(`CinetPay verify HTTP ${res.status}`);
-        (err as any).status = res.status;
-        throw err;
+        throw new HttpError(`CinetPay verify HTTP ${res.status}`, res.status);
       }
 
-      return res.json() as Promise<any>;
+      return res.json() as Promise<Record<string, unknown>>;
     });
 
-    const cpStatus = data?.data?.status;
+    const inner = data?.data as Record<string, unknown> | undefined;
+    const cpStatus = inner?.status;
     let status: PaymentVerifyResult["status"] = "pending";
     if (cpStatus === "ACCEPTED") status = "completed";
     else if (cpStatus === "REFUSED" || cpStatus === "CANCELLED") status = "failed";
@@ -119,9 +118,9 @@ export class CinetPayProvider implements BaseProvider {
     return {
       providerReference,
       status,
-      amount: data?.data?.amount,
-      currency: data?.data?.currency,
-      paymentMethod: data?.data?.payment_method,
+      amount: inner?.amount as number | undefined,
+      currency: inner?.currency as string | undefined,
+      paymentMethod: inner?.payment_method as string | undefined,
       raw: data,
     };
   }
