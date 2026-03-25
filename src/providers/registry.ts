@@ -7,6 +7,8 @@ import { Hub2Provider } from "./hub2.js";
 import { PapssProvider } from "./papss.js";
 import { FlutterwaveProvider } from "./flutterwave.js";
 import { KKiaPayProvider } from "./kkiapay.js";
+import { MonerooProvider } from "./moneroo.js";
+import { MtnMomoProvider } from "./mtn-momo.js";
 
 const providers: Record<string, BaseProvider> = {
   mock: new MockProvider(),
@@ -16,6 +18,8 @@ const providers: Record<string, BaseProvider> = {
   papss: new PapssProvider(),
   flutterwave: new FlutterwaveProvider(),
   kkiapay: new KKiaPayProvider(),
+  moneroo: new MonerooProvider(),
+  mtn: new MtnMomoProvider(),
 };
 
 export function getProvider(name: string): BaseProvider {

@@ -23,6 +23,14 @@ const envSchema = z.object({
   KKIAPAY_PRIVATE_KEY: z.string().default(""),
   KKIAPAY_SECRET: z.string().default(""),
 
+  MONEROO_SECRET_KEY: z.string().default(""),
+
+  MTN_MOMO_COLLECTION_SUBSCRIPTION_KEY: z.string().default(""),
+  MTN_MOMO_API_USER: z.string().default(""),
+  MTN_MOMO_API_KEY: z.string().default(""),
+  MTN_MOMO_ENVIRONMENT: z.enum(["sandbox", "live"]).default("sandbox"),
+  MTN_MOMO_CALLBACK_URL: z.string().default(""),
+
   WARIMCP_WEBHOOK_BASE_URL: z.string().default(""),
   WARIMCP_RELAY_SECRET: z.string().default(""),
 
