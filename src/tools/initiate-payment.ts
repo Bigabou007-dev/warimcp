@@ -3,6 +3,7 @@ import type { PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import { transactions, auditLog } from "../db/schema.js";
 import { getProvider } from "../providers/registry.js";
 import { getConfig } from "../config.js";
+import { HttpError } from "../utils/http-error.js";
 import type { InitiatePaymentInput } from "./definitions.js";
 
 export async function initiatePayment(
@@ -94,8 +95,13 @@ export async function initiatePayment(
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
 
-    // Automatic fallback: if primary fails and a fallback is available, try it
-    if (provider.name !== FALLBACK_PROVIDER && provider.name !== "mock") {
+    // Only fall back on client errors (4xx) where we KNOW the payment was NOT initiated.
+    // For server errors (5xx) or network errors, the payment may have been initiated
+    // but the response lost — falling back would risk a double charge.
+    const isSafeToFallback =
+      err instanceof HttpError && err.status >= 400 && err.status < 500;
+
+    if (isSafeToFallback && provider.name !== FALLBACK_PROVIDER && provider.name !== "mock") {
       try {
         const fallback = getProvider(FALLBACK_PROVIDER);
         if (fallback.isConfigured()) {

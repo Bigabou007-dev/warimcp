@@ -8,6 +8,8 @@
  * Example: base 5000 XOF -> generates 5001, 5002, ... 5099, then wraps.
  */
 
+import crypto from "node:crypto";
+
 export interface PaymentReference {
   baseAmount: number;
   uniqueAmount: number;
@@ -30,6 +32,7 @@ const activeReferences = new Map<string, PaymentReference>();
 const amountIndex = new Map<number, string>();
 
 const TTL_MS = 30 * 60 * 1000; // 30 minutes
+const MAX_REFERENCES = 1000;
 
 function getNextSuffix(baseAmount: number): number {
   const current = counters.get(baseAmount) ?? 0;
@@ -42,8 +45,8 @@ function generateCode(uniqueAmount: number): string {
   const now = new Date();
   const month = String(now.getMonth() + 1).padStart(2, "0");
   const day = String(now.getDate()).padStart(2, "0");
-  // Random 2-char alphanumeric tag to reduce collisions on wrap-around
-  const tag = Math.random().toString(36).substring(2, 4).toUpperCase();
+  // Cryptographically random 4-hex-char tag to reduce collisions on wrap-around
+  const tag = crypto.randomBytes(2).toString("hex").toUpperCase();
   return `PAY-${uniqueAmount}-${month}${day}-${tag}`;
 }
 
@@ -54,6 +57,16 @@ function generateCode(uniqueAmount: number): string {
 export function generatePaymentReference(baseAmount: number): PaymentReference {
   if (baseAmount <= 0 || !Number.isInteger(baseAmount)) {
     throw new Error("baseAmount must be a positive integer");
+  }
+
+  // Guard against unbounded memory growth (DoS protection)
+  if (activeReferences.size >= MAX_REFERENCES) {
+    expireStaleReferences();
+    if (activeReferences.size >= MAX_REFERENCES) {
+      throw new Error(
+        "Maximum active payment references reached. Wait for existing references to expire."
+      );
+    }
   }
 
   // Try up to 99 suffixes to find one not currently in use

@@ -27,6 +27,23 @@ import { smsWebhookRouter } from "../manual-payments/sms-webhook.js";
 import { paymentPageRouter } from "../manual-payments/payment-page.js";
 import { expireStaleReferences } from "../manual-payments/reference-generator.js";
 
+/** Sanitize errors for HTTP responses — never leak provider internals. */
+function safeError(err: unknown): { status: number; body: { error: string } } {
+  if (err instanceof HttpError) {
+    console.error(`[provider-error] ${err.message}`);
+    return {
+      status: err.status >= 500 ? 502 : err.status,
+      body: { error: "Payment provider error" },
+    };
+  }
+  const message = err instanceof Error ? err.message : "Unknown error";
+  if (message.includes("not found")) {
+    return { status: 404, body: { error: message } };
+  }
+  console.error(`[error] ${message}`);
+  return { status: 500, body: { error: "Internal server error" } };
+}
+
 export function createHttpServer(db: PostgresJsDatabase, port: number) {
   const app = express();
 
@@ -69,7 +86,8 @@ export function createHttpServer(db: PostgresJsDatabase, port: number) {
         const result = await initiatePayment(db, req.body);
         res.status(201).json(result);
       } catch (err) {
-        res.status(500).json({ error: err instanceof Error ? err.message : "Internal error" });
+        const { status, body } = safeError(err);
+        res.status(status).json(body);
       }
     }
   );
@@ -80,9 +98,8 @@ export function createHttpServer(db: PostgresJsDatabase, port: number) {
       const result = await verifyPayment(db, parsed.transactionId);
       res.json(result);
     } catch (err) {
-      res.status(err instanceof Error && err.message.includes("not found") ? 404 : 500).json({
-        error: err instanceof Error ? err.message : "Internal error",
-      });
+      const { status, body } = safeError(err);
+      res.status(status).json(body);
     }
   });
 
@@ -95,7 +112,8 @@ export function createHttpServer(db: PostgresJsDatabase, port: number) {
       const result = await refundPayment(db, parsed.transactionId, parsed.amount, parsed.reason);
       res.json(result);
     } catch (err) {
-      res.status(500).json({ error: err instanceof Error ? err.message : "Internal error" });
+      const { status, body } = safeError(err);
+      res.status(status).json(body);
     }
   });
 
@@ -110,7 +128,8 @@ export function createHttpServer(db: PostgresJsDatabase, port: number) {
       const result = await listTransactions(db, parsed);
       res.json(result);
     } catch (err) {
-      res.status(500).json({ error: err instanceof Error ? err.message : "Internal error" });
+      const { status, body } = safeError(err);
+      res.status(status).json(body);
     }
   });
 
@@ -124,7 +143,8 @@ export function createHttpServer(db: PostgresJsDatabase, port: number) {
         const result = await generatePaymentLink(db, req.body);
         res.status(201).json(result);
       } catch (err) {
-        res.status(500).json({ error: err instanceof Error ? err.message : "Internal error" });
+        const { status, body } = safeError(err);
+        res.status(status).json(body);
       }
     }
   );
@@ -140,7 +160,8 @@ export function createHttpServer(db: PostgresJsDatabase, port: number) {
         const result = await initiatePayout(db, req.body);
         res.status(201).json(result);
       } catch (err) {
-        res.status(500).json({ error: err instanceof Error ? err.message : "Internal error" });
+        const { status, body } = safeError(err);
+        res.status(status).json(body);
       }
     }
   );
@@ -151,9 +172,8 @@ export function createHttpServer(db: PostgresJsDatabase, port: number) {
       const result = await verifyPayout(db, parsed.payoutId);
       res.json(result);
     } catch (err) {
-      res.status(err instanceof Error && err.message.includes("not found") ? 404 : 500).json({
-        error: err instanceof Error ? err.message : "Internal error",
-      });
+      const { status, body } = safeError(err);
+      res.status(status).json(body);
     }
   });
 
