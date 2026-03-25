@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const InitiatePaymentSchema = z.object({
-  provider: z.string().default("moneroo"),
+  provider: z.string().default("fedapay"),
   amount: z.number().int().min(100).max(5_000_000),
   currency: z.string().default("XOF"),
   idempotencyKey: z.string().min(6).max(128),
@@ -33,7 +33,7 @@ export const ListTransactionsSchema = z.object({
 });
 
 export const GeneratePaymentLinkSchema = z.object({
-  provider: z.string().default("moneroo"),
+  provider: z.string().default("fedapay"),
   amount: z.number().int().min(100).max(5_000_000),
   currency: z.string().default("XOF"),
   description: z.string().default("Payment"),
@@ -41,7 +41,7 @@ export const GeneratePaymentLinkSchema = z.object({
 });
 
 export const InitiatePayoutSchema = z.object({
-  provider: z.string().default("moneroo"),
+  provider: z.string().default("fedapay"),
   amount: z.number().int().min(100).max(5_000_000),
   currency: z.string().default("XOF"),
   idempotencyKey: z.string().min(6).max(128),
