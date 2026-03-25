@@ -25,6 +25,9 @@ const envSchema = z.object({
 
   MONEROO_SECRET_KEY: z.string().default(""),
 
+  FEDAPAY_SECRET_KEY: z.string().default(""),
+  FEDAPAY_PUBLIC_KEY: z.string().default(""),
+
   MTN_MOMO_COLLECTION_SUBSCRIPTION_KEY: z.string().default(""),
   MTN_MOMO_API_USER: z.string().default(""),
   MTN_MOMO_API_KEY: z.string().default(""),

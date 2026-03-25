@@ -9,6 +9,7 @@ import { FlutterwaveProvider } from "./flutterwave.js";
 import { KKiaPayProvider } from "./kkiapay.js";
 import { MonerooProvider } from "./moneroo.js";
 import { MtnMomoProvider } from "./mtn-momo.js";
+import { FedaPayProvider } from "./fedapay.js";
 
 const providers: Record<string, BaseProvider> = {
   mock: new MockProvider(),
@@ -20,6 +21,7 @@ const providers: Record<string, BaseProvider> = {
   kkiapay: new KKiaPayProvider(),
   moneroo: new MonerooProvider(),
   mtn: new MtnMomoProvider(),
+  fedapay: new FedaPayProvider(),
 };
 
 export function getProvider(name: string): BaseProvider {
