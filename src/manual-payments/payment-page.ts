@@ -36,9 +36,9 @@ function buildPaymentHtml(
 
   const paidBanner = paid
     ? `<div class="banner success">
-        <div class="banner-icon">&#10003;</div>
+        <div class="banner-icon"><span aria-hidden="true">&#10003;</span><span class="sr-only">Paiement confirme</span></div>
         <div class="banner-text">Paiement confirme !</div>
-        <div class="banner-sub">Payment confirmed!</div>
+        <div class="banner-sub"><span lang="en">Payment confirmed!</span></div>
       </div>`
     : "";
 
@@ -49,41 +49,41 @@ function buildPaymentHtml(
         <h2>Envoyez exactement :</h2>
         <div class="amount">${amountStr} FCFA</div>
         <p class="amount-note">Le montant exact est important pour identifier votre paiement.<br>
-        <em>The exact amount is important to identify your payment.</em></p>
+        <em><span lang="en">The exact amount is important to identify your payment.</span></em></p>
       </div>
 
       ${
         waveNumber
-          ? `<div class="section method">
+          ? `<section class="section method">
               <h3>Wave</h3>
-              <div class="number">${escapeHtml(waveNumber)}</div>
+              <div class="number"><a href="tel:${escapeHtml(waveNumber.replace(/\s/g, ''))}" class="phone-link">${escapeHtml(waveNumber)}</a></div>
               <p>Envoyez <strong>${amountStr} FCFA</strong> a ce numero via Wave.<br>
-              <em>Send <strong>${amountStr} FCFA</strong> to this number via Wave.</em></p>
-            </div>`
+              <em><span lang="en">Send <strong>${amountStr} FCFA</strong> to this number via Wave.</span></em></p>
+            </section>`
           : ""
       }
 
       ${
         omNumber
-          ? `<div class="section method">
+          ? `<section class="section method">
               <h3>Orange Money</h3>
-              <div class="number">${escapeHtml(omNumber)}</div>
+              <div class="number"><a href="tel:${escapeHtml(omNumber.replace(/\s/g, ''))}" class="phone-link">${escapeHtml(omNumber)}</a></div>
               <p>Envoyez <strong>${amountStr} FCFA</strong> a ce numero via Orange Money.<br>
-              <em>Send <strong>${amountStr} FCFA</strong> to this number via Orange Money.</em></p>
-            </div>`
+              <em><span lang="en">Send <strong>${amountStr} FCFA</strong> to this number via Orange Money.</span></em></p>
+            </section>`
           : ""
       }
 
       <div class="section">
-        <div class="ref-label">Votre reference / Your reference:</div>
+        <div class="ref-label">Votre reference / <span lang="en">Your reference:</span></div>
         <div class="ref-code">${escapedRef}</div>
         <p class="ref-note">Conservez ce code. Il sera verifie automatiquement.<br>
-        <em>Keep this code. It will be verified automatically.</em></p>
+        <em><span lang="en">Keep this code. It will be verified automatically.</span></em></p>
       </div>
 
       <div class="waiting">
-        <div class="spinner"></div>
-        <p>En attente de confirmation...<br><em>Waiting for confirmation...</em></p>
+        <div class="spinner" role="status" aria-label="Verification en cours"></div>
+        <p>En attente de confirmation...<br><em><span lang="en">Waiting for confirmation...</span></em></p>
       </div>`;
 
   return `<!DOCTYPE html>
@@ -115,6 +115,9 @@ function buildPaymentHtml(
       font-size: 0.85rem;
       margin-top: 4px;
     }
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); border: 0; }
+    .phone-link { color: inherit; text-decoration: none; }
+    .phone-link:hover, .phone-link:focus { text-decoration: underline; }
     .container {
       max-width: 480px;
       margin: 0 auto;
@@ -164,7 +167,7 @@ function buildPaymentHtml(
     .amount {
       font-size: 2.2rem;
       font-weight: 800;
-      color: #D4A012;
+      color: #8B6914;
       text-align: center;
       padding: 12px 0;
     }
@@ -233,20 +236,21 @@ function buildPaymentHtml(
       text-align: center;
       padding: 20px;
       font-size: 0.75rem;
-      color: #999;
+      color: #555;
     }
   </style>
 </head>
 <body>
-  <div class="header">
-    <h1>Paiement / Payment</h1>
+  <header class="header">
+    <h1>Paiement / <span lang="en">Payment</span></h1>
     <div class="brand">Lagoon Tech Systems</div>
-  </div>
-  <div class="container">
+  </header>
+  <main class="container">
     ${paidBanner}
     ${pendingSection}
-  </div>
-  <div class="footer">Lagoon Tech Systems &mdash; lagoontechsystems.com</div>
+    <div id="status-region" aria-live="polite" aria-atomic="true" class="sr-only"></div>
+  </main>
+  <footer class="footer">Lagoon Tech Systems &mdash; lagoontechsystems.com</footer>
   ${
     paid
       ? ""
@@ -257,7 +261,10 @@ function buildPaymentHtml(
         fetch("/pay/" + encodeURIComponent(ref) + "/status")
           .then(function(r) { return r.json(); })
           .then(function(d) {
-            if (d.paid) { window.location.reload(); }
+            if (d.paid) {
+              document.getElementById('status-region').textContent = 'Paiement confirme!';
+              setTimeout(function() { window.location.reload(); }, 1500);
+            }
           })
           .catch(function() {});
       }
@@ -357,10 +364,10 @@ function buildErrorHtml(title: string, messageFr: string, messageEn: string): st
   </style>
 </head>
 <body>
-  <div class="card">
+  <div class="card" role="alert">
     <h1>${escapeHtml(title)}</h1>
     <p>${escapeHtml(messageFr)}</p>
-    <p><em>${escapeHtml(messageEn)}</em></p>
+    <p><em><span lang="en">${escapeHtml(messageEn)}</span></em></p>
   </div>
 </body>
 </html>`;

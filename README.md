@@ -1,151 +1,184 @@
 # WariMCP
 
-> **The AI-native payment layer for West Africa**
+WariMCP is an MCP (Model Context Protocol) server that gives AI agents and REST clients a unified interface to West African payment providers. It exposes 10 providers through a single API — payments, payouts, refunds, webhooks — with FedaPay as the recommended primary and Hub2 as the recommended secondary. Runs as an MCP stdio server (for Claude/Cursor/Windsurf), an Express HTTP API, or both simultaneously.
 
-[![npm version](https://img.shields.io/npm/v/warimcp.svg?style=flat-square)](https://www.npmjs.com/package/warimcp)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](https://opensource.org/licenses/MIT)
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](https://github.com/Bigabou007-dev/warimcp/blob/main/CONTRIBUTING.md)
+## Quick Start
 
----
+```bash
+git clone https://github.com/Bigabou007-dev/warimcp.git
+cd warimcp
+npm install
+cp .env.example .env   # edit with your credentials
+npm run db:migrate      # set up PostgreSQL schema
+npm run db:seed-api-key # generate your first API key
+npm run dev             # starts MCP + HTTP on port 3000
+```
 
-## Overview
+Requires Node >= 22 and PostgreSQL 16+.
 
-WariMCP is an **MCP (Model Context Protocol) server** that gives AI agents and LLMs a unified, production-ready interface to all major West African payment rails.
+## Providers
 
-Instead of integrating CinetPay, Wave, Hub2/Ecobank, and PAPSS one by one — WariMCP exposes them all through a single, consistent API that any Claude, GPT, or custom AI agent can call natively.
+10 providers are available in the codebase. The recommended production setup is **FedaPay + Hub2**.
 
-**Built for:**
-- AI agents that need to initiate, track, or refund payments in West Africa
-- Developers building fintech products across UEMOA and pan-African corridors
-- Agencies that need a white-label payment middleware layer
+| Provider | Key | Region | Methods | Currencies | Status |
+|---|---|---|---|---|---|
+| **FedaPay** | `fedapay` | CI, SN, BJ, TG, BF, ML, NE, GW | MTN, Orange, Moov, Wave, Card | XOF, XAF, GNF | **Recommended Primary** — live keys, true aggregator |
+| **Hub2** | `hub2` | CI, SN, ML, BF, TG, BJ, NE, CM | Mobile Money | XOF, XAF | **Recommended Secondary** — pending sandbox access |
+| CinetPay | `cinetpay` | CI, SN, ML, BF, TG, BJ + 6 more | Mobile Money, Card, Wallet | XOF, XAF, CDF, GNF | Requires RCCM |
+| Wave | `wave` | CI, SN, ML, BF, UG, TZ | Wave wallet | XOF | Requires RCCM |
+| Flutterwave | `flutterwave` | CI, SN, NG, GH, KE + 4 more | Mobile Money, Card, Bank | XOF, XAF, NGN, GHS, KES, USD, EUR | Available |
+| KKiaPay | `kkiapay` | CI, SN, BJ, BF, ML, TG, NE, GW | MTN, Orange, Wave, Card | XOF, XAF | Available |
+| Moneroo | `moneroo` | CI, SN, BJ, BF + 10 more | MTN, Orange, Wave, Moov, Card, Bank | XOF, XAF, GNF, CDF, NGN, GHS, KES, USD, EUR | Available |
+| MTN MoMo | `mtn` | CI, GH, UG, RW, BJ, CM, CG | MTN Mobile Money | EUR | Available |
+| PAPSS | `papss` | CI, KE, NG, GH | Bank Transfer | XOF, KES, NGN, GHS | Future |
+| Mock | `mock` | All | All | All | Testing only |
 
----
+Set `WARIMCP_MODE=mock` to route all providers through the mock provider (no API keys needed).
 
-## Supported Payment Rails
+## API Endpoints
 
-| Provider | Region | Coverage | Phase |
+All payment/payout endpoints require an `X-Api-Key` header. Generate keys with `npm run db:seed-api-key`.
+
+| Method | Path | Auth | Description |
 |---|---|---|---|
-| **CinetPay** | UEMOA | Orange Money, MTN, Wave, Moov, Visa/MC | Phase 1 |
-| **Wave** | Côte d'Ivoire, Sénégal | Wave mobile wallet | Phase 1 |
-| **Hub2 / Ecobank** | UEMOA (unified) | 200M+ mobile wallets, single API | Phase 2 |
-| **PAPSS** | Pan-African | CI ↔ Kenya corridor, 160+ banks, local currency | Phase 3 |
+| `GET` | `/health` | No | Health check |
+| `GET` | `/api/v1/providers` | No | List all providers and their config status |
+| `POST` | `/api/v1/payments/initiate` | Yes | Initiate a payment (returns checkout URL) |
+| `GET` | `/api/v1/payments/:id` | Yes | Verify payment status |
+| `POST` | `/api/v1/payments/:id/refund` | Yes | Full or partial refund |
+| `GET` | `/api/v1/payments` | Yes | List transactions (filterable by provider, status) |
+| `POST` | `/api/v1/payment-links` | Yes | Generate a shareable payment link |
+| `POST` | `/api/v1/payouts/initiate` | Yes | Disburse to mobile money or bank |
+| `GET` | `/api/v1/payouts/:id` | Yes | Verify payout status |
+| `POST` | `/api/v1/webhooks/:provider` | No | Inbound webhook receiver (signature-verified) |
+| `GET` | `/pay/:ref` | No | Manual payment page (public) |
+| `POST` | `/api/sms-webhook` | No | SMS notification receiver for manual payments |
 
----
+## MCP Tools
 
-## Installation
+When registered as an MCP server, WariMCP exposes these tools to AI agents:
 
-```bash
-npm install warimcp
-```
+| Tool | Description |
+|---|---|
+| `list_providers` | List all providers, their config status, and supported rails |
+| `initiate_payment` | Start a payment via any provider — returns a checkout URL |
+| `verify_payment` | Check the status of a payment by transaction ID |
+| `refund_payment` | Issue a full or partial refund |
+| `list_transactions` | List recent transactions with provider/status filters |
+| `generate_payment_link` | Create a shareable payment link |
+| `initiate_payout` | Disburse funds to a mobile money wallet or bank account |
+| `verify_payout` | Check the status of a payout |
 
-### Environment Variables
-
-Copy `.env.example` and fill in your credentials:
-
-```bash
-cp .env.example .env
-```
-
-```env
-CINETPAY_API_KEY=your_cinetpay_api_key
-CINETPAY_SITE_ID=your_cinetpay_site_id
-WAVE_API_KEY=your_wave_api_key
-HUB2_API_KEY=your_hub2_api_key
-PAPSS_API_KEY=your_papss_api_key
-WARIMCP_PORT=3000
-WARIMCP_ENV=development
-```
-
----
-
-## Usage
-
-### As an MCP Server (Claude / Cursor / Windsurf)
-
-Add to your `.claude.json` or MCP config:
+### MCP Registration
 
 ```json
 {
   "mcpServers": {
     "warimcp": {
       "command": "node",
-      "args": ["/path/to/warimcp/src/index.js"],
+      "args": ["/path/to/warimcp/dist/index.js"],
       "env": {
-        "CINETPAY_API_KEY": "...",
-        "CINETPAY_SITE_ID": "..."
+        "WARIMCP_TRANSPORT": "stdio",
+        "DATABASE_URL": "postgresql://warimcp:yourpass@localhost:5432/warimcp",
+        "FEDAPAY_SECRET_KEY": "sk_live_..."
       }
     }
   }
 }
 ```
 
-### As a Node.js Module
+## Security
 
-```js
-const warimcp = require('warimcp');
+- **Helmet** with Content-Security-Policy (default-src 'self', no inline scripts)
+- **Timing-safe HMAC verification** for CinetPay and Wave webhooks (`crypto.timingSafeEqual`)
+- **HMAC-SHA256 signed webhook relay** — outbound relays include `X-WariMCP-Signature` header
+- **API key auth** with SHA-256 hashed storage, per-key permissions, and per-key rate limits
+- **Token bucket rate limiting** — 60 req/min default per API key, 10 req/min for SMS webhooks
+- **Error sanitization** — provider errors are caught and rewritten; internal details never leak to clients
+- **Non-root Docker user** — container runs as dedicated `warimcp` user (UID 1001)
+- **Zod validation** on all inputs with strict schemas (amount bounds, phone format, UUID checks)
 
-const result = await warimcp.initiatePayment({
-  provider: 'cinetpay',
-  amount: 5000,
-  currency: 'XOF',
-  customer: { name: 'Kofi Atta', phone: '+2250700000000' },
-  description: 'Invoice #001',
-  return_url: 'https://yourapp.com/payment/callback'
-});
+## Manual Payment Collection
+
+A pre-RCCM workaround for accepting payments without formal API access. WariMCP generates a unique payment amount by adding a 1-99 XOF suffix to the base price (e.g., 5000 XOF becomes 5037 XOF). The customer sends this exact amount to a personal Wave or Orange Money number. When the SMS notification arrives at `/api/sms-webhook`, WariMCP matches the amount to the pending reference and marks it paid.
+
+- References expire after 30 minutes
+- Up to 99 concurrent references per base amount
+- Stale references are garbage-collected every 5 minutes
+- Public payment page at `/pay/:ref` shows the customer what to send and where
+
+## Configuration
+
+All configuration is via environment variables (see `.env.example`):
+
+```env
+# Mode: mock | sandbox | live
+WARIMCP_MODE=mock
+
+# Transport: stdio | http | both
+WARIMCP_TRANSPORT=both
+WARIMCP_PORT=3000
+
+# Database
+DATABASE_URL=postgresql://warimcp:changeme@localhost:5432/warimcp
+
+# Primary — FedaPay
+FEDAPAY_SECRET_KEY=
+FEDAPAY_PUBLIC_KEY=
+
+# Secondary — Hub2
+HUB2_API_KEY=
+
+# Other providers (configure as needed)
+CINETPAY_API_KEY=
+CINETPAY_SITE_ID=
+WAVE_API_KEY=
+WAVE_WEBHOOK_SECRET=
+FLUTTERWAVE_SECRET_KEY=
+FLUTTERWAVE_PUBLIC_KEY=
+KKIAPAY_PUBLIC_KEY=
+KKIAPAY_PRIVATE_KEY=
+KKIAPAY_SECRET=
+MONEROO_SECRET_KEY=
+MTN_MOMO_COLLECTION_SUBSCRIPTION_KEY=
+MTN_MOMO_API_USER=
+MTN_MOMO_API_KEY=
+MTN_MOMO_ENVIRONMENT=sandbox
+MTN_MOMO_CALLBACK_URL=
+PAPSS_API_KEY=
+
+# Webhooks
+WARIMCP_WEBHOOK_BASE_URL=
+WARIMCP_RELAY_SECRET=
+
+# Manual payments (pre-RCCM)
+MANUAL_PAYMENT_WAVE_NUMBER=
+MANUAL_PAYMENT_OM_NUMBER=
+MANUAL_PAYMENT_WHATSAPP_NOTIFY=
+MANUAL_PAYMENT_SMS_SECRET=
 ```
 
----
+## Docker Deployment
 
-## MCP Tools
+```bash
+# Set DB_PASSWORD in .env, then:
+docker compose up -d
+```
 
-WariMCP exposes the following tools to AI agents:
+Runs two containers on the `npm_proxy` network:
+- **warimcp** — Node 22 Alpine, non-root, 512 MB limit, health-checked at `/health`
+- **warimcp_db** — PostgreSQL 16 Alpine, 256 MB limit, persistent volume
 
-| Tool | Description |
-|---|---|
-| `initiate_payment` | Start a payment via any supported rail |
-| `check_status` | Poll the status of a transaction |
-| `refund` | Issue a full or partial refund |
-| `list_transactions` | List recent transactions with filters |
-| `generate_payment_link` | Create a shareable payment link |
-
----
+The HTTP transport is used in Docker (`WARIMCP_TRANSPORT=http`). For MCP stdio access, run the server directly with `node dist/index.js`.
 
 ## Roadmap
 
-### Phase 1 — CinetPay + Wave (March 2026)
-- [x] Project scaffold + MCP server
-- [ ] CinetPay provider: `initiate_payment`, `check_status`, `refund`
-- [ ] Wave provider: `initiate_payment`, `check_status`
-- [ ] Webhook handler (payment confirmation)
-- [ ] Master log / queue for Always-On reliability
-- [ ] npm publish (`npm install warimcp`)
+**Phase 1 (current):** FedaPay as primary aggregator + Hub2 as secondary. Manual payment collection for pre-RCCM operation. All 10 provider adapters implemented.
 
-### Phase 2 — Hub2 / Ecobank Unified Gateway (60 days)
-- [ ] Hub2 provider integration (single API → full UEMOA)
-- [ ] Unified routing layer (auto-select best rail by country/wallet)
-- [ ] `list_transactions` across providers
-- [ ] Hosted dashboard (transaction monitor)
+**Phase 2:** CinetPay + Wave activation once RCCM is filed. Full webhook verification for all active providers. Automatic provider fallback (FedaPay -> Hub2 -> CinetPay).
 
-### Phase 3 — PAPSS Pan-African Corridor (Q3 2026)
-- [ ] PAPSS integration (CI ↔ Kenya + 160 banks)
-- [ ] Multi-currency settlement engine
-- [ ] Enterprise middleware API (AI Bookkeeper, Bulk Payment Agent)
-- [ ] Partnership program (Hub2, CinetPay, Orange Ventures)
-
----
-
-## Contributing
-
-PRs, issues, and discussions are welcome. Please open an issue before submitting major changes.
-
-1. Fork the repo
-2. Create your branch: `git checkout -b feat/your-feature`
-3. Commit your changes: `git commit -m 'feat: add your feature'`
-4. Push: `git push origin feat/your-feature`
-5. Open a Pull Request
-
----
+**Phase 3:** PAPSS pan-African corridor (CI to KE/NG/GH). Multi-currency settlement. Bulk payouts.
 
 ## License
 
-[MIT](LICENSE) — Built by [Bigabou](https://github.com/Bigabou007-dev) in Abidjan, Côte d'Ivoire.
+[MIT](LICENSE)

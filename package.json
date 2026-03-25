@@ -37,6 +37,17 @@
   "bugs": {
     "url": "https://github.com/Bigabou007-dev/warimcp/issues"
   },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
   "engines": {
     "node": ">=22.0.0"
   },

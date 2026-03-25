@@ -136,7 +136,7 @@ export class MonerooProvider implements BaseProvider {
         last_name: "",
         phone: input.recipientPhone,
       },
-      method: input.method === "mobile_money" ? "mtn_ci" : "mtn_ci",
+      method: input.method === "mobile_money" ? "mtn_ci" : "bank_transfer",
       metadata: { idempotency_key: input.idempotencyKey, ...input.metadata },
     };
 

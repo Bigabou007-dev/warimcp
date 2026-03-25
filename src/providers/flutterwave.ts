@@ -130,7 +130,7 @@ export class FlutterwaveProvider implements BaseProvider {
       throw new Error("Flutterwave not configured");
     }
 
-    const bankCode = input.method === "mobile_money" ? "MPS" : "MPS"; // bank transfers require specific bank codes via metadata
+    const bankCode = input.method === "mobile_money" ? "MPS" : (input.metadata?.bankCode as string) || "MPS";
     const payload = {
       account_bank: bankCode,
       account_number: input.recipientPhone,
