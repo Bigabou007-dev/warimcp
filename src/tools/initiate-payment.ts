@@ -29,7 +29,8 @@ export async function initiatePayment(
     };
   }
 
-  const provider = getProvider(input.provider);
+  const FALLBACK_PROVIDER = "fedapay";
+  let provider = getProvider(input.provider);
   const config = getConfig();
   const notifyUrl =
     input.notifyUrl ||
@@ -92,6 +93,64 @@ export async function initiatePayment(
     };
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
+
+    // Automatic fallback: if primary fails and a fallback is available, try it
+    if (provider.name !== FALLBACK_PROVIDER && provider.name !== "mock") {
+      try {
+        const fallback = getProvider(FALLBACK_PROVIDER);
+        if (fallback.isConfigured()) {
+          console.error(
+            `[payment] ${provider.name} failed (${message}), falling back to ${FALLBACK_PROVIDER}`
+          );
+
+          const fallbackNotifyUrl = config.WARIMCP_WEBHOOK_BASE_URL
+            ? `${config.WARIMCP_WEBHOOK_BASE_URL}/api/v1/webhooks/${fallback.name}`
+            : "";
+
+          const result = await fallback.initiatePayment({
+            ...input,
+            notifyUrl: fallbackNotifyUrl,
+          });
+
+          // Update transaction with fallback provider
+          await db
+            .update(transactions)
+            .set({
+              provider: fallback.name,
+              providerReference: result.providerReference,
+              paymentUrl: result.paymentUrl,
+              status: result.status === "completed" ? "completed" : "pending",
+              updatedAt: new Date(),
+            })
+            .where(eq(transactions.id, tx.id));
+
+          await db.insert(auditLog).values({
+            transactionId: tx.id,
+            action: "initiated_fallback",
+            actor: `provider:${fallback.name}`,
+            details: {
+              providerReference: result.providerReference,
+              originalProvider: provider.name,
+              originalError: message,
+            },
+          });
+
+          return {
+            transactionId: tx.id,
+            provider: fallback.name,
+            providerReference: result.providerReference,
+            status: result.status === "completed" ? "completed" : "pending",
+            paymentUrl: result.paymentUrl,
+            amount: input.amount,
+            currency: input.currency,
+            idempotent: false,
+          };
+        }
+      } catch {
+        // Fallback also failed — fall through to original error
+      }
+    }
+
     await db
       .update(transactions)
       .set({
