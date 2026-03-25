@@ -1,16 +1,46 @@
+import crypto from "node:crypto";
 import { getConfig } from "../config.js";
 
 /**
  * CinetPay webhook verification.
- * CinetPay sends form-encoded or JSON webhooks with cpm_site_id.
- * We verify by checking the site_id matches AND re-verifying the transaction server-side.
+ * CinetPay signs webhooks with HMAC-SHA256 using the API key.
+ * Falls back to site_id-only check when no API key or signature header is present.
  */
-export function verifyCinetPayWebhook(body: Record<string, unknown>): boolean {
+export function verifyCinetPayWebhook(
+  body: Record<string, unknown>,
+  rawBody?: string,
+  signatureHeader?: string
+): boolean {
   const config = getConfig();
   const siteId = body.cpm_site_id || body.site_id;
 
-  if (!siteId || !config.CINETPAY_SITE_ID) return false;
-  return String(siteId) === config.CINETPAY_SITE_ID;
+  // Site ID check (always required when available)
+  const siteIdValid =
+    !!siteId && !!config.CINETPAY_SITE_ID && String(siteId) === config.CINETPAY_SITE_ID;
+
+  // If no API key configured or no signature header, fall back to site_id-only check
+  if (!config.CINETPAY_API_KEY || !signatureHeader || !rawBody) {
+    return siteIdValid;
+  }
+
+  // HMAC-SHA256 verification
+  const expected = crypto
+    .createHmac("sha256", config.CINETPAY_API_KEY)
+    .update(rawBody)
+    .digest("hex");
+
+  let hmacValid: boolean;
+  try {
+    hmacValid = crypto.timingSafeEqual(
+      Buffer.from(expected, "hex"),
+      Buffer.from(signatureHeader, "hex")
+    );
+  } catch {
+    return false;
+  }
+
+  // Both checks must pass
+  return hmacValid && siteIdValid;
 }
 
 export function parseCinetPayEvent(body: Record<string, unknown>) {

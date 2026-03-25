@@ -1,7 +1,8 @@
 import express from "express";
+import helmet from "helmet";
 import type { PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import { createAuthMiddleware } from "./middleware/auth.js";
-import { rateLimitMiddleware } from "./middleware/rate-limit.js";
+import { rateLimitMiddleware, smsRateLimitMiddleware } from "./middleware/rate-limit.js";
 import { validateBody } from "./middleware/validate.js";
 import {
   InitiatePaymentSchema,
@@ -21,12 +22,25 @@ import { listProviders } from "../tools/list-providers.js";
 import { initiatePayout } from "../tools/initiate-payout.js";
 import { verifyPayout } from "../tools/verify-payout.js";
 import { handleProviderWebhook } from "../webhooks/handler.js";
+import { HttpError } from "../utils/http-error.js";
 import { smsWebhookRouter } from "../manual-payments/sms-webhook.js";
 import { paymentPageRouter } from "../manual-payments/payment-page.js";
 import { expireStaleReferences } from "../manual-payments/reference-generator.js";
 
 export function createHttpServer(db: PostgresJsDatabase, port: number) {
   const app = express();
+
+  // Security headers
+  app.use(helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: ["'self'", "data:"],
+      },
+    },
+  }));
 
   // Raw body needed for webhook signature verification
   app.use("/api/v1/webhooks", express.raw({ type: "*/*" }));
@@ -144,7 +158,7 @@ export function createHttpServer(db: PostgresJsDatabase, port: number) {
   });
 
   // Manual payment routes — no auth (public-facing)
-  app.use("/api/sms-webhook", smsWebhookRouter);
+  app.use("/api/sms-webhook", smsRateLimitMiddleware, smsWebhookRouter);
   app.use("/pay", paymentPageRouter);
 
   // Clean up stale payment references every 5 minutes
@@ -160,11 +174,15 @@ export function createHttpServer(db: PostgresJsDatabase, port: number) {
     try {
       const rawBody = Buffer.isBuffer(req.body) ? req.body.toString("utf-8") : JSON.stringify(req.body);
       const body = Buffer.isBuffer(req.body) ? JSON.parse(rawBody) : req.body;
-      const signature = req.headers["wave-signature"] as string | undefined;
+      const provider = req.params.provider;
+      const signature =
+        provider === "cinetpay"
+          ? (req.headers["x-cp-signature"] as string | undefined)
+          : (req.headers["wave-signature"] as string | undefined);
 
       const result = await handleProviderWebhook(
         db,
-        req.params.provider,
+        provider,
         body,
         rawBody,
         signature
@@ -175,6 +193,27 @@ export function createHttpServer(db: PostgresJsDatabase, port: number) {
       res.status(500).json({ error: "Webhook processing error" });
     }
   });
+
+  // Global error sanitization — prevent provider internals from leaking
+  app.use(
+    (
+      err: Error,
+      _req: express.Request,
+      res: express.Response,
+      _next: express.NextFunction
+    ) => {
+      if (err instanceof HttpError) {
+        console.error(`[provider-error] ${err.message}`);
+        res.status(err.status >= 500 ? 502 : err.status).json({
+          error: "Payment provider error",
+          code: "PROVIDER_ERROR",
+        });
+        return;
+      }
+      console.error(`[error] ${err.message}`);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  );
 
   const server = app.listen(port, () => {
     console.error(`WariMCP HTTP server listening on port ${port}`);

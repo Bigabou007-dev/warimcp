@@ -107,6 +107,7 @@ export class KKiaPayProvider implements BaseProvider {
       providerReference,
       status,
       amount: data?.amount ? Number(data.amount) : undefined,
+      currency: (data?.currency as string) || undefined,
       paymentMethod: data?.source as string | undefined,
       raw: data,
     };

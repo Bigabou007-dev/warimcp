@@ -30,6 +30,7 @@ const envSchema = z.object({
   MANUAL_PAYMENT_WAVE_NUMBER: z.string().default(""),
   MANUAL_PAYMENT_OM_NUMBER: z.string().default(""),
   MANUAL_PAYMENT_WHATSAPP_NOTIFY: z.string().default(""),
+  MANUAL_PAYMENT_SMS_SECRET: z.string().default(""),
 });
 
 export type Config = z.infer<typeof envSchema>;

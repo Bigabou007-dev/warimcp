@@ -14,11 +14,13 @@ const config = loadConfig();
 const sql = postgres(config.DATABASE_URL);
 const db = drizzle(sql);
 
+let server: ReturnType<typeof createHttpServer> | null = null;
+
 async function main() {
   const transport = config.WARIMCP_TRANSPORT;
 
   if (transport === "http" || transport === "both") {
-    createHttpServer(db, config.WARIMCP_PORT);
+    server = createHttpServer(db, config.WARIMCP_PORT);
   }
 
   if (transport === "stdio" || transport === "both") {
@@ -38,3 +40,32 @@ main().catch((err) => {
   console.error("Failed to start WariMCP:", err);
   process.exit(1);
 });
+
+let shuttingDown = false;
+
+async function shutdown() {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  console.error("Shutting down WariMCP...");
+
+  // Hard exit failsafe
+  const failsafe = setTimeout(() => {
+    console.error("Shutdown timed out — forcing exit");
+    process.exit(1);
+  }, 10_000);
+  failsafe.unref();
+
+  // Close HTTP server if running
+  if (server) {
+    await new Promise<void>((resolve) => server!.close(() => resolve()));
+  }
+
+  // Close database connection
+  await sql.end();
+
+  console.error("WariMCP shutdown complete");
+  process.exit(0);
+}
+
+process.on("SIGTERM", shutdown);
+process.on("SIGINT", shutdown);

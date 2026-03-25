@@ -5,6 +5,7 @@
  * and matches them to pending payment references.
  */
 
+import crypto from "node:crypto";
 import { Router, type Request, type Response } from "express";
 import { z } from "zod";
 import { matchPayment, markReferenceAsPaid } from "./reference-generator.js";
@@ -96,6 +97,39 @@ async function notifyViaWhatsApp(
 }
 
 smsWebhookRouter.post("/", async (req: Request, res: Response) => {
+  // HMAC signature verification
+  const config = getConfig();
+  const secret = config.MANUAL_PAYMENT_SMS_SECRET;
+
+  if (secret) {
+    const signature = req.headers["x-webhook-signature"];
+    if (!signature || typeof signature !== "string") {
+      res.status(401).json({ error: "Missing X-Webhook-Signature header" });
+      return;
+    }
+
+    const expected = crypto
+      .createHmac("sha256", secret)
+      .update(JSON.stringify(req.body))
+      .digest("hex");
+
+    try {
+      const valid = crypto.timingSafeEqual(
+        Buffer.from(expected, "hex"),
+        Buffer.from(signature, "hex")
+      );
+      if (!valid) {
+        res.status(401).json({ error: "Invalid webhook signature" });
+        return;
+      }
+    } catch {
+      res.status(401).json({ error: "Invalid webhook signature" });
+      return;
+    }
+  } else {
+    console.error("[sms-webhook] WARNING: MANUAL_PAYMENT_SMS_SECRET not set — accepting unsigned requests");
+  }
+
   // Validate input
   const parsed = SmsPayloadSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -149,7 +183,6 @@ smsWebhookRouter.post("/", async (req: Request, res: Response) => {
   );
 
   // Notify business owner via WhatsApp
-  const config = getConfig();
   const notifyPhone = config.MANUAL_PAYMENT_WHATSAPP_NOTIFY;
 
   if (notifyPhone) {

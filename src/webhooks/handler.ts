@@ -22,7 +22,7 @@ export async function handleProviderWebhook(
   let parsed: { providerReference: string; eventType: string; status: string };
 
   if (provider === "cinetpay") {
-    signatureValid = verifyCinetPayWebhook(body);
+    signatureValid = verifyCinetPayWebhook(body, rawBody, signatureHeader);
     parsed = parseCinetPayEvent(body);
   } else if (provider === "wave") {
     signatureValid = verifyWaveWebhook(rawBody, signatureHeader);
