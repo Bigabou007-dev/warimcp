@@ -16,8 +16,20 @@ const envSchema = z.object({
   HUB2_API_KEY: z.string().default(""),
   PAPSS_API_KEY: z.string().default(""),
 
+  FLUTTERWAVE_SECRET_KEY: z.string().default(""),
+  FLUTTERWAVE_PUBLIC_KEY: z.string().default(""),
+
+  KKIAPAY_PUBLIC_KEY: z.string().default(""),
+  KKIAPAY_PRIVATE_KEY: z.string().default(""),
+  KKIAPAY_SECRET: z.string().default(""),
+
   WARIMCP_WEBHOOK_BASE_URL: z.string().default(""),
   WARIMCP_RELAY_SECRET: z.string().default(""),
+
+  // Manual payment collection (pre-RCCM)
+  MANUAL_PAYMENT_WAVE_NUMBER: z.string().default(""),
+  MANUAL_PAYMENT_OM_NUMBER: z.string().default(""),
+  MANUAL_PAYMENT_WHATSAPP_NOTIFY: z.string().default(""),
 });
 
 export type Config = z.infer<typeof envSchema>;

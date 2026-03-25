@@ -5,6 +5,8 @@ import { CinetPayProvider } from "./cinetpay.js";
 import { WaveProvider } from "./wave.js";
 import { Hub2Provider } from "./hub2.js";
 import { PapssProvider } from "./papss.js";
+import { FlutterwaveProvider } from "./flutterwave.js";
+import { KKiaPayProvider } from "./kkiapay.js";
 
 const providers: Record<string, BaseProvider> = {
   mock: new MockProvider(),
@@ -12,6 +14,8 @@ const providers: Record<string, BaseProvider> = {
   wave: new WaveProvider(),
   hub2: new Hub2Provider(),
   papss: new PapssProvider(),
+  flutterwave: new FlutterwaveProvider(),
+  kkiapay: new KKiaPayProvider(),
 };
 
 export function getProvider(name: string): BaseProvider {

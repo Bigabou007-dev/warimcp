@@ -21,6 +21,9 @@ import { listProviders } from "../tools/list-providers.js";
 import { initiatePayout } from "../tools/initiate-payout.js";
 import { verifyPayout } from "../tools/verify-payout.js";
 import { handleProviderWebhook } from "../webhooks/handler.js";
+import { smsWebhookRouter } from "../manual-payments/sms-webhook.js";
+import { paymentPageRouter } from "../manual-payments/payment-page.js";
+import { expireStaleReferences } from "../manual-payments/reference-generator.js";
 
 export function createHttpServer(db: PostgresJsDatabase, port: number) {
   const app = express();
@@ -139,6 +142,18 @@ export function createHttpServer(db: PostgresJsDatabase, port: number) {
       });
     }
   });
+
+  // Manual payment routes — no auth (public-facing)
+  app.use("/api/sms-webhook", smsWebhookRouter);
+  app.use("/pay", paymentPageRouter);
+
+  // Clean up stale payment references every 5 minutes
+  setInterval(() => {
+    const removed = expireStaleReferences();
+    if (removed > 0) {
+      console.error(`[manual-payments] Expired ${removed} stale reference(s)`);
+    }
+  }, 5 * 60 * 1000);
 
   // Webhook endpoints — NO auth, signature verification handled internally
   app.post("/api/v1/webhooks/:provider", async (req, res) => {
