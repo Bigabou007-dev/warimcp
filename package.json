@@ -54,7 +54,7 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.1",
     "dotenv": "^17.3.1",
-    "drizzle-orm": "^0.44.2",
+    "drizzle-orm": "^0.45.2",
     "express": "^5.1.0",
     "helmet": "^8.1.0",
     "postgres": "^3.4.7",
@@ -69,6 +69,8 @@
     "vitest": "^3.2.1"
   },
   "overrides": {
-    "esbuild": ">=0.25.0"
+    "esbuild": ">=0.25.0",
+    "ip-address": ">=10.2.0",
+    "express-rate-limit": ">=8.5.1"
   }
 }
