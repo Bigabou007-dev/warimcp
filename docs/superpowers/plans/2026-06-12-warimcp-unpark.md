@@ -23,9 +23,19 @@ regulatory exposure removed for internal use. Commercial scale remains gated on
 the I2 avocat opinion (DEFERRED, financial hard-stop).
 
 **Decisions captured 2026-06-12:**
-- I4 distribution → **npm publish** (needs a `bin` entry + `npm publish`).
-- Provider strategy → **Hub2 is the strategic future provider** (partnership in
-  progress); Hub2 adapter's "coming in Phase 2" is honest — do not remove it.
+- **Posture → BYOK self-host, "as legally safe as possible."** WariMCP is pure
+  software that instructs licensed PSPs; holds no funds, ships no credentials.
+  Each operator runs their own instance with their own keys = their own merchant
+  of record. **Do NOT run one shared hosted instance for third parties' money** —
+  current code is single-key-per-deployment (not per-API-call); a shared instance
+  = LTS becomes merchant-of-record for others' funds = custody/commercial-license
+  trap (I2 territory).
+- I4 distribution → **npm publish** as a self-host BYOK tool (needs a `bin` entry
+  + `npm publish`); ships zero credentials.
+- Provider strategy → internally LTS will use **Hub2 in the future** (partnership
+  in progress); Hub2 adapter's "coming in Phase 2" is honest — do not remove it.
+  Until the Hub2 adapter exists, LTS's own internal instance bridges on **FedaPay**
+  (the only working adapter).
 
 ---
 
@@ -54,10 +64,14 @@ BEFORE any production deploy. Deploy must NOT set the flag in the live `.env`.
 
 ---
 
-## Task 2 — I4: MCP registry listing (NOT STARTED — gated on Task 1 deployed)
+## Task 2 — I4: MCP registry listing (NOT STARTED — BYOK self-host tool)
 
-**Hard dependency:** Task 1 merged + deployed first (don't publicise a build whose
-default still mounts collection routes — though after Task 1, default is OFF).
+**Framing:** publish as a self-host BYOK tool — the npm package ships zero
+credentials; each operator supplies their own PSP keys. The registry entry points
+at the npm package, not an LTS-hosted instance.
+
+**Hard dependency:** Task 1 merged first (so the published package is safe by
+default) + repo made **public** (currently private — separate explicit decision).
 
 - [ ] a. Verify the *live* publish process — `registry.modelcontextprotocol.io`
   docs + `mcp-publisher` CLI + current `server.json` schema (don't trust memory).
@@ -72,6 +86,9 @@ default still mounts collection routes — though after Task 1, default is OFF).
 - [ ] g. Write-up: dev.to post + README install snippet/badge.
 - [ ] h. Honesty pass on `list_providers` so the public listing shows FedaPay as
   live and others as not-yet-configured — keep Hub2 prominent (future provider).
+- [ ] i. **Operator-responsibility disclaimer** (README/NOTICE): each operator runs
+  this with their own PSP account and is responsible for their own licensing and
+  regulatory compliance. Highest-value "legally safe" addition for BYOK.
 
 ---
 
