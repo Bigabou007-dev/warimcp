@@ -26,6 +26,7 @@ import { HttpError } from "../utils/http-error.js";
 import { smsWebhookRouter } from "../manual-payments/sms-webhook.js";
 import { paymentPageRouter } from "../manual-payments/payment-page.js";
 import { expireStaleReferences } from "../manual-payments/reference-generator.js";
+import { getConfig } from "../config.js";
 
 /** Sanitize errors for HTTP responses — never leak provider internals. */
 function safeError(err: unknown): { status: number; body: { error: string } } {
@@ -177,17 +178,28 @@ export function createHttpServer(db: PostgresJsDatabase, port: number) {
     }
   });
 
-  // Manual payment routes — no auth (public-facing)
-  app.use("/api/sms-webhook", smsRateLimitMiddleware, smsWebhookRouter);
-  app.use("/pay", paymentPageRouter);
+  // Manual payment routes — DISABLED BY DEFAULT (BCEAO Instruction 001-01-2024 liability).
+  // These route customer funds into a personal Wave/OM account with SMS reconciliation,
+  // which is unlicensed payment collection. Mounted ONLY when the feature is explicitly
+  // enabled via MANUAL_PAYMENT_COLLECTION_ENABLED=true. See ROADMAP.md "CRITICAL".
+  if (getConfig().MANUAL_PAYMENT_COLLECTION_ENABLED) {
+    console.error(
+      "[manual-payments] ENABLED via MANUAL_PAYMENT_COLLECTION_ENABLED=true — " +
+        "personal-account collection is active. Confirm RCCM / licensed-PSP posture before real-money use."
+    );
 
-  // Clean up stale payment references every 5 minutes
-  setInterval(() => {
-    const removed = expireStaleReferences();
-    if (removed > 0) {
-      console.error(`[manual-payments] Expired ${removed} stale reference(s)`);
-    }
-  }, 5 * 60 * 1000);
+    app.use("/api/sms-webhook", smsRateLimitMiddleware, smsWebhookRouter);
+    app.use("/pay", paymentPageRouter);
+
+    // Clean up stale payment references every 5 minutes.
+    // .unref() so this timer never keeps the process (or a test runner) alive.
+    setInterval(() => {
+      const removed = expireStaleReferences();
+      if (removed > 0) {
+        console.error(`[manual-payments] Expired ${removed} stale reference(s)`);
+      }
+    }, 5 * 60 * 1000).unref();
+  }
 
   // Webhook endpoints — NO auth, signature verification handled internally
   app.post("/api/v1/webhooks/:provider", async (req, res) => {
