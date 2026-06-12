@@ -2,8 +2,12 @@
   "name": "warimcp",
   "version": "2.0.0",
   "description": "WariMCP — AI-native payment MCP server for West Africa. Unified gateway for CinetPay, Wave, Hub2/Ecobank, and PAPSS payment rails.",
+  "mcpName": "io.github.bigabou007-dev/warimcp",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "bin": {
+    "warimcp": "dist/index.js"
+  },
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",

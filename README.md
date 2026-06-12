@@ -69,21 +69,26 @@ When registered as an MCP server, WariMCP exposes these tools to AI agents:
 
 ### MCP Registration
 
+Register WariMCP with any MCP client (Claude Desktop, Cursor, Windsurf, VS Code) using `npx`:
+
 ```json
 {
   "mcpServers": {
     "warimcp": {
-      "command": "node",
-      "args": ["/path/to/warimcp/dist/index.js"],
+      "command": "npx",
+      "args": ["-y", "warimcp"],
       "env": {
         "WARIMCP_TRANSPORT": "stdio",
+        "WARIMCP_MODE": "live",
         "DATABASE_URL": "postgresql://warimcp:yourpass@localhost:5432/warimcp",
-        "FEDAPAY_SECRET_KEY": "sk_live_..."
+        "FEDAPAY_SECRET_KEY": "your-own-fedapay-key"
       }
     }
   }
 }
 ```
+
+> **Bring your own keys.** `FEDAPAY_SECRET_KEY` is *your* FedaPay account — settlement goes to you, never to an intermediary. Set `WARIMCP_MODE=mock` to exercise the tools with no keys and no real money. A reachable PostgreSQL instance is required (`DATABASE_URL`); run `npm run db:migrate` against it once. For local development, point `command` at `node` and `args` at `dist/index.js` instead.
 
 ## Security
 

@@ -1,0 +1,51 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.bigabou007-dev/warimcp",
+  "title": "WariMCP",
+  "description": "AI-native payment MCP server for West Africa (WAEMU mobile money). Instructs licensed PSPs (FedaPay, and more) — no custody, bring your own keys.",
+  "repository": {
+    "url": "https://github.com/Bigabou007-dev/warimcp",
+    "source": "github"
+  },
+  "websiteUrl": "https://github.com/Bigabou007-dev/warimcp#readme",
+  "version": "2.0.0",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "warimcp",
+      "version": "2.0.0",
+      "transport": {
+        "type": "stdio"
+      },
+      "runtimeHint": "npx",
+      "environmentVariables": [
+        {
+          "name": "DATABASE_URL",
+          "description": "PostgreSQL connection string. WariMCP persists transactions, payouts, and API keys.",
+          "isRequired": true,
+          "isSecret": true,
+          "format": "string"
+        },
+        {
+          "name": "WARIMCP_TRANSPORT",
+          "description": "Transport: stdio (for MCP clients), http, or both. Use stdio for MCP.",
+          "isRequired": false,
+          "format": "string"
+        },
+        {
+          "name": "WARIMCP_MODE",
+          "description": "mock (deterministic, no keys needed), sandbox, or live.",
+          "isRequired": false,
+          "format": "string"
+        },
+        {
+          "name": "FEDAPAY_SECRET_KEY",
+          "description": "Your own FedaPay secret key (bring your own keys). Needed for the live FedaPay rail; omit in mock mode.",
+          "isRequired": false,
+          "isSecret": true,
+          "format": "string"
+        }
+      ]
+    }
+  ]
+}
