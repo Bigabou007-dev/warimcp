@@ -3,15 +3,13 @@ import type { AddressInfo } from "node:net";
 import type { Server } from "node:http";
 
 // Base env required by config — set BEFORE importing anything that reads it.
-// Crucially we do NOT set MANUAL_PAYMENT_COLLECTION_ENABLED → it must default OFF.
 process.env.WARIMCP_MODE = "mock";
 process.env.WARIMCP_TRANSPORT = "http";
-process.env.WARIMCP_PORT = "3000"; // config requires >=1; the actual listen port is 0 (ephemeral) below
+process.env.WARIMCP_PORT = "3000"; // config requires >=1; actual listen port is 0 (ephemeral) below
 process.env.DATABASE_URL = "postgresql://test:test@localhost:5432/test";
 
 const { createHttpServer } = await import("../../src/server/http.js");
 
-// Manual-payment routes never touch the DB; a bare stub is sufficient.
 const stubDb = {} as never;
 let server: Server;
 let baseUrl: string;
@@ -31,17 +29,16 @@ afterAll(async () => {
   await new Promise<void>((resolve) => server.close(() => resolve()));
 });
 
-describe("manual-payment-collection — DISABLED by default (fail-closed)", () => {
-  it("GET /pay/:ref returns a bare 404 — the router is not mounted", async () => {
+// The manual-payment-collection feature (personal Wave/OM account + SMS
+// reconciliation) was hard-removed 2026-06-12 as unlicensed custody, incompatible
+// with the BYOK no-custody posture. These routes must never exist again.
+describe("manual-payment-collection routes are permanently absent", () => {
+  it("GET /pay/:ref does not exist (404)", async () => {
     const res = await fetch(`${baseUrl}/pay/anyref`);
     expect(res.status).toBe(404);
-    // If the manual-payment router were mounted it would render an HTML page
-    // containing this string. Its absence proves the route does not exist.
-    const body = await res.text();
-    expect(body).not.toContain("Reference introuvable");
   });
 
-  it("POST /api/sms-webhook returns 404 — the router is not mounted", async () => {
+  it("POST /api/sms-webhook does not exist (404)", async () => {
     const res = await fetch(`${baseUrl}/api/sms-webhook`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },

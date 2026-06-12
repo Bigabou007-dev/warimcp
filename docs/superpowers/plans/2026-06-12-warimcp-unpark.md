@@ -39,28 +39,32 @@ the I2 avocat opinion (DEFERRED, financial hard-stop).
 
 ---
 
-## Task 1 — Feature-flag manual-collection OFF ✅ DONE (branch `worktree-warimcp-unpark`)
+## Task 1 — HARD-REMOVE manual-collection ✅ DONE (supersedes the flag-off)
 
-**Security hard-stop — explicitly approved 2026-06-12.**
+**Security hard-stop — approved 2026-06-12.** Originally flag-gated; on
+2026-06-12 the owner chose full **hard-removal** instead — consistent with the
+board's day-old Marché L1 custody ruling (whis: "DO-NOT-PROCEED if the adapter
+ships behind a flippable flag" / "only if custody adapter hard-removed") and the
+BYOK no-custody posture (a personal-account custody feature is dead code under
+BYOK).
 
-**Files changed:**
-- `src/config.ts` — added `MANUAL_PAYMENT_COLLECTION_ENABLED` (string→bool, default
-  `false`, only literal `"true"` enables; deliberately not `z.coerce.boolean()`).
-- `src/server/http.ts` — `import { getConfig }`; wrapped the `/api/sms-webhook` +
-  `/pay` mounts and the cleanup `setInterval` (now `.unref()`) in
-  `if (getConfig().MANUAL_PAYMENT_COLLECTION_ENABLED) { ... }`.
-- `.env.example` — documented `MANUAL_PAYMENT_COLLECTION_ENABLED=false` with the
-  BCEAO warning.
-- `test/integration/manual-payment-flag-off.test.ts` — proves fail-closed (404, no
-  router HTML) by default.
-- `test/integration/manual-payment-flag-on.test.ts` — proves mount works when
-  `=true` (router HTML 404 + 422 on bad payload).
+**Removed:**
+- `src/manual-payments/` — entire directory deleted (sms-webhook, payment-page,
+  reference-generator, index).
+- `src/server/http.ts` — all manual-payment imports + the route mounts removed;
+  replaced with a "do not reintroduce" comment.
+- `src/config.ts` — all `MANUAL_PAYMENT_*` vars removed.
+- `src/server/middleware/rate-limit.ts` — dead `smsRateLimitMiddleware` removed.
+- `.env.example` + `README.md` — manual-payment sections removed; README gains a
+  "No Custody (Bring Your Own Keys)" section + operator-responsibility statement.
+- `test/integration/no-manual-payment-routes.test.ts` — regression test asserting
+  `/pay/:ref` and `/api/sms-webhook` return 404 (guards against reintroduction).
 
-**Verification:** `npm run build` exit 0; `npm run test` 28/28 pass.
+**Verification:** `npm run build` exit 0; `npm run test` green.
 
-**Remaining for Task 1:** code review + board review + deploy gate
-(`/lts-pre-deploy warimcp` — note: warimcp is not yet a registered pre-deploy key)
-BEFORE any production deploy. Deploy must NOT set the flag in the live `.env`.
+**Remaining for Task 1:** board review + deploy gate (`/lts-pre-deploy warimcp` —
+not yet a registered key) BEFORE any production deploy. (Merged to `main` +
+repo made public 2026-06-12.)
 
 ---
 

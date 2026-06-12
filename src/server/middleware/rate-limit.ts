@@ -1,4 +1,4 @@
-import type { Request, Response, NextFunction } from "express";
+import type { Response, NextFunction } from "express";
 import type { AuthenticatedRequest } from "./auth.js";
 
 const buckets = new Map<string, { tokens: number; lastRefill: number }>();
@@ -37,47 +37,6 @@ export function rateLimitMiddleware(req: AuthenticatedRequest, res: Response, ne
 
   if (bucket.tokens <= 0) {
     res.status(429).json({ error: "Rate limit exceeded" });
-    return;
-  }
-
-  bucket.tokens--;
-  next();
-}
-
-const smsBuckets = new Map<string, { tokens: number; lastRefill: number }>();
-
-const SMS_RATE = 10; // per minute
-
-// Clean up old SMS buckets every 5 minutes
-setInterval(() => {
-  const now = Date.now();
-  for (const [key, bucket] of smsBuckets) {
-    if (now - bucket.lastRefill > WINDOW_MS * 5) {
-      smsBuckets.delete(key);
-    }
-  }
-}, 300_000).unref();
-
-export function smsRateLimitMiddleware(req: Request, res: Response, next: NextFunction) {
-  const ip = req.ip || "unknown";
-  const now = Date.now();
-
-  let bucket = smsBuckets.get(ip);
-  if (!bucket) {
-    bucket = { tokens: SMS_RATE, lastRefill: now };
-    smsBuckets.set(ip, bucket);
-  }
-
-  // Refill tokens based on elapsed time
-  const elapsed = now - bucket.lastRefill;
-  const refill = Math.floor((elapsed / WINDOW_MS) * SMS_RATE);
-  if (refill > 0) {
-    bucket.tokens = Math.min(SMS_RATE, bucket.tokens + refill);
-    bucket.lastRefill = now;
-  }
-
-  if (bucket.tokens <= 0) {
-    res.status(429).json({ error: "Too many requests" });
     return;
   }
 

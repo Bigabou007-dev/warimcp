@@ -36,22 +36,7 @@ const envSchema = z.object({
 
   WARIMCP_WEBHOOK_BASE_URL: z.string().default(""),
   WARIMCP_RELAY_SECRET: z.string().default(""),
-
-  // Manual payment collection (pre-RCCM)
-  MANUAL_PAYMENT_WAVE_NUMBER: z.string().default(""),
-  MANUAL_PAYMENT_OM_NUMBER: z.string().default(""),
-  MANUAL_PAYMENT_WHATSAPP_NOTIFY: z.string().default(""),
-  MANUAL_PAYMENT_SMS_SECRET: z.string().default(""),
-
-  // Manual-payment-collection master switch — DISABLED BY DEFAULT.
-  // Routes customer funds into a personal Wave/OM account = unlicensed payment
-  // collection under BCEAO Instruction n°001-01-2024 (see ROADMAP.md "CRITICAL").
-  // Only the literal "true" enables it; absence or any other value = OFF.
-  // Deliberately NOT z.coerce.boolean() — that coerces the string "false" to true.
-  MANUAL_PAYMENT_COLLECTION_ENABLED: z
-    .string()
-    .default("false")
-    .transform((v) => v.toLowerCase() === "true"),
+  // Manual-payment-collection config removed 2026-06-12 (custody feature deleted).
 });
 
 export type Config = z.infer<typeof envSchema>;
