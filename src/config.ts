@@ -36,12 +36,7 @@ const envSchema = z.object({
 
   WARIMCP_WEBHOOK_BASE_URL: z.string().default(""),
   WARIMCP_RELAY_SECRET: z.string().default(""),
-
-  // Manual payment collection (pre-RCCM)
-  MANUAL_PAYMENT_WAVE_NUMBER: z.string().default(""),
-  MANUAL_PAYMENT_OM_NUMBER: z.string().default(""),
-  MANUAL_PAYMENT_WHATSAPP_NOTIFY: z.string().default(""),
-  MANUAL_PAYMENT_SMS_SECRET: z.string().default(""),
+  // Manual-payment-collection config removed 2026-06-12 (custody feature deleted).
 });
 
 export type Config = z.infer<typeof envSchema>;
