@@ -43,10 +43,6 @@ WariMCP has three billing doors on the HTTP API:
 2. **x402 pay-per-call** (optional) — with `X402_ENABLED=true`, requests **without** an API key can pay per call in **USDC on Base** via the [x402 protocol](https://x402.org). No account, no key — a human dev or an AI agent gets a `402` challenge, signs a USDC payment, and the request settles automatically. Priced per operation: writes (initiate/refund/payout/link) at `X402_PRICE_WRITE` (default $0.02), reads (verify/list) at `X402_PRICE_READ` (default $0.005). With `X402_ACCEPT_EURC=true`, **EURC** is offered as a second settlement asset — the XOF is euro-pegged (655.957/EUR), so EURC pricing carries zero FX drift for a WAEMU operator.
 3. **Prepaid mobile-money credits** (optional) — with `BILLING_PREPAID_ENABLED=true`, an API key can carry an XOF credit balance charged per call (`BILLING_PRICE_WRITE_XOF`/`BILLING_PRICE_READ_XOF`, defaults 15/3 XOF). Top-ups are collected **through WariMCP itself** on the operator's own PSP account: `POST /api/v1/billing/topup` returns a checkout URL (Orange Money/Wave/MTN…), and the provider's completion webhook credits the balance — idempotently, so replayed webhooks can never double-credit. `GET /api/v1/billing/balance` shows the balance. Keys **without** a credit account behave exactly as before. This door means a developer with no card and no crypto can pay for the API with mobile money.
 
-## Provider failover
-
-If the requested provider rejects a payment initiation with a **4xx** (payment provably never created), WariMCP fails over through `WARIMCP_FAILOVER_CHAIN` (comma-separated, default `fedapay`), skipping unconfigured providers. **5xx/network errors never fail over** — the payment may already exist at that provider, and retrying elsewhere would risk a double charge; the chain also stops if a failover candidate fails ambiguously. Every attempt is written to the audit log.
-
 ```bash
 X402_ENABLED=true
 X402_PAY_TO=0xYourWallet          # receives the USDC
@@ -58,6 +54,10 @@ Rules of the road:
 - With `X402_ENABLED=false` (default), behavior is identical to previous releases (missing key → 401).
 - Facilitator sync happens at boot with background retries — an unreachable facilitator never crashes the gateway; API-key traffic is unaffected and priced requests error until a sync succeeds.
 - The per-call fee is a **software/API fee paid in USDC to your wallet** — WariMCP still never touches the mobile-money funds themselves (BYOK, no custody).
+
+## Provider failover
+
+If the requested provider rejects a payment initiation with a **4xx** (payment provably never created), WariMCP fails over through `WARIMCP_FAILOVER_CHAIN` (comma-separated, default `fedapay`), skipping unconfigured providers. **5xx/network errors never fail over** — the payment may already exist at that provider, and retrying elsewhere would risk a double charge; the chain also stops if a failover candidate fails ambiguously. Every attempt is written to the audit log.
 
 ## API Endpoints
 
@@ -195,3 +195,10 @@ The HTTP transport is used in Docker (`WARIMCP_TRANSPORT=http`). For MCP stdio a
 ## License
 
 [MIT](LICENSE)
+
+## License
+
+WariMCP is **source-available** under the [Functional Source License 1.1 (FSL-1.1-ALv2)](./LICENSE.md):
+you may read, use, modify, and self-host it for any purpose **except offering a competing
+commercial product or service**. Each release automatically becomes Apache-2.0 two years
+after publication. For commercial licensing beyond these terms, contact Lagoon Tech Systems.

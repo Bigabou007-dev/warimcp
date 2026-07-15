@@ -8,7 +8,7 @@
     "build": "tsc",
     "lint": "tsc --noEmit"
   },
-  "license": "MIT",
+  "license": "FSL-1.1-ALv2",
   "dependencies": {},
   "devDependencies": {
     "typescript": "^5.8.3"
