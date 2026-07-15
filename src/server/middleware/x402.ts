@@ -49,6 +49,10 @@ export async function buildX402Middleware(): Promise<RequestHandler> {
     new ExactEvmScheme() as never
   );
 
+  // Bazaar discovery metadata — lets the x402 Bazaar catalog index WariMCP so
+  // agents can find and pay for it programmatically.
+  const { declareDiscoveryExtension } = await import("@x402/extensions/bazaar");
+
   const accepts = (price: string) => ({
     accepts: {
       scheme: "exact" as const,
@@ -62,10 +66,39 @@ export async function buildX402Middleware(): Promise<RequestHandler> {
     "POST /api/v1/payments/initiate": {
       ...accepts(cfg.X402_PRICE_WRITE),
       description: "Initiate a mobile-money/card payment in West Africa (returns checkout URL)",
+      extensions: declareDiscoveryExtension({
+        bodyType: "json",
+        input: {
+          provider: "fedapay",
+          amount: 5000,
+          currency: "XOF",
+          idempotencyKey: "order-1234",
+          description: "Order #1234",
+          customerName: "Awa Kone",
+          customerPhone: "+2250707070707",
+        },
+        inputSchema: {
+          type: "object",
+          properties: {
+            provider: { type: "string", description: "fedapay | cinetpay | wave | kkiapay | moneroo | flutterwave | mock" },
+            amount: { type: "integer", description: "Whole currency units, e.g. 5000 = 5000 XOF" },
+            currency: { type: "string", description: "XOF, XAF, CDF, GNF" },
+            idempotencyKey: { type: "string" },
+            description: { type: "string" },
+            customerName: { type: "string" },
+            customerPhone: { type: "string", description: "International format: +225..." },
+          },
+          required: ["provider", "amount", "currency", "idempotencyKey", "customerName", "customerPhone"],
+        },
+      }),
     },
     "GET /api/v1/payments/:id": {
       ...accepts(cfg.X402_PRICE_READ),
       description: "Verify a payment's status",
+      extensions: declareDiscoveryExtension({
+        input: {},
+        inputSchema: { type: "object", properties: {} },
+      }),
     },
     "POST /api/v1/payments/:id/refund": {
       ...accepts(cfg.X402_PRICE_WRITE),
@@ -81,7 +114,30 @@ export async function buildX402Middleware(): Promise<RequestHandler> {
     },
     "POST /api/v1/payouts/initiate": {
       ...accepts(cfg.X402_PRICE_WRITE),
-      description: "Disburse funds to a mobile-money wallet or bank account",
+      description: "Disburse funds to a mobile-money wallet or bank account in West Africa",
+      extensions: declareDiscoveryExtension({
+        bodyType: "json",
+        input: {
+          provider: "fedapay",
+          amount: 10000,
+          currency: "XOF",
+          idempotencyKey: "payout-5678",
+          recipientName: "Awa Kone",
+          recipientPhone: "+2250707070707",
+        },
+        inputSchema: {
+          type: "object",
+          properties: {
+            provider: { type: "string" },
+            amount: { type: "integer" },
+            currency: { type: "string" },
+            idempotencyKey: { type: "string" },
+            recipientName: { type: "string" },
+            recipientPhone: { type: "string" },
+          },
+          required: ["provider", "amount", "currency", "idempotencyKey", "recipientName", "recipientPhone"],
+        },
+      }),
     },
     "GET /api/v1/payouts/:id": {
       ...accepts(cfg.X402_PRICE_READ),
