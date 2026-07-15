@@ -6,6 +6,33 @@ import { getConfig } from "../config.js";
 import { HttpError } from "../utils/http-error.js";
 import type { InitiatePaymentInput } from "./definitions.js";
 
+/**
+ * Resolve the ordered failover candidates after a failed initiation.
+ * Pure: dedupes the configured chain, drops the provider that already failed,
+ * and never routes real traffic to mock.
+ */
+export function resolveFailoverChain(requested: string, chainCsv: string): string[] {
+  const seen = new Set<string>([requested.toLowerCase(), "mock"]);
+  const out: string[] = [];
+  for (const raw of chainCsv.split(",")) {
+    const name = raw.trim().toLowerCase();
+    if (!name || seen.has(name)) continue;
+    seen.add(name);
+    out.push(name);
+  }
+  return out;
+}
+
+/**
+ * Only errors that PROVE the payment was never initiated are safe to fail
+ * over from. 4xx = provider rejected the request outright. 5xx or a network
+ * error means the payment MAY exist at the provider — retrying elsewhere
+ * would risk a double charge, so the chain stops immediately.
+ */
+function isSafeToFailover(err: unknown): boolean {
+  return err instanceof HttpError && err.status >= 400 && err.status < 500;
+}
+
 export async function initiatePayment(
   db: PostgresJsDatabase,
   input: InitiatePaymentInput
@@ -30,13 +57,12 @@ export async function initiatePayment(
     };
   }
 
-  const FALLBACK_PROVIDER = "fedapay";
-  let provider = getProvider(input.provider);
+  const provider = getProvider(input.provider);
   const config = getConfig();
-  const notifyUrl =
+  const notifyUrlFor = (providerName: string) =>
     input.notifyUrl ||
     (config.WARIMCP_WEBHOOK_BASE_URL
-      ? `${config.WARIMCP_WEBHOOK_BASE_URL}/api/v1/webhooks/${provider.name}`
+      ? `${config.WARIMCP_WEBHOOK_BASE_URL}/api/v1/webhooks/${providerName}`
       : "");
 
   // Create transaction record
@@ -58,16 +84,21 @@ export async function initiatePayment(
     })
     .returning();
 
-  try {
-    const result = await provider.initiatePayment({
+  /** Run one provider attempt; on success, persist + return the API result. */
+  const attempt = async (
+    p: ReturnType<typeof getProvider>,
+    action: "initiated" | "initiated_fallback",
+    extraDetails: Record<string, unknown> = {}
+  ) => {
+    const result = await p.initiatePayment({
       ...input,
-      notifyUrl,
+      notifyUrl: notifyUrlFor(p.name),
     });
 
-    // Update with provider response
     await db
       .update(transactions)
       .set({
+        provider: p.name,
         providerReference: result.providerReference,
         paymentUrl: result.paymentUrl,
         status: result.status === "completed" ? "completed" : "pending",
@@ -77,14 +108,14 @@ export async function initiatePayment(
 
     await db.insert(auditLog).values({
       transactionId: tx.id,
-      action: "initiated",
-      actor: `provider:${provider.name}`,
-      details: { providerReference: result.providerReference },
+      action,
+      actor: `provider:${p.name}`,
+      details: { providerReference: result.providerReference, ...extraDetails },
     });
 
     return {
       transactionId: tx.id,
-      provider: provider.name,
+      provider: p.name,
       providerReference: result.providerReference,
       status: result.status === "completed" ? "completed" : "pending",
       paymentUrl: result.paymentUrl,
@@ -92,80 +123,67 @@ export async function initiatePayment(
       currency: input.currency,
       idempotent: false,
     };
+  };
+
+  try {
+    return await attempt(provider, "initiated");
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Unknown error";
+    const originalMessage = err instanceof Error ? err.message : "Unknown error";
+    let lastError: unknown = err;
 
-    // Only fall back on client errors (4xx) where we KNOW the payment was NOT initiated.
-    // For server errors (5xx) or network errors, the payment may have been initiated
-    // but the response lost — falling back would risk a double charge.
-    const isSafeToFallback =
-      err instanceof HttpError && err.status >= 400 && err.status < 500;
+    // Failover chain: only entered when the FIRST failure is provably
+    // uninitiated (4xx). The chain also STOPS the moment any candidate fails
+    // ambiguously (5xx/network) — that candidate may hold a live payment.
+    if (isSafeToFailover(err) && provider.name !== "mock") {
+      const chain = resolveFailoverChain(provider.name, config.WARIMCP_FAILOVER_CHAIN);
+      for (const candidateName of chain) {
+        let candidate;
+        try {
+          candidate = getProvider(candidateName);
+        } catch {
+          continue; // unknown name in config — skip
+        }
+        if (!candidate.isConfigured()) continue;
 
-    if (isSafeToFallback && provider.name !== FALLBACK_PROVIDER && provider.name !== "mock") {
-      try {
-        const fallback = getProvider(FALLBACK_PROVIDER);
-        if (fallback.isConfigured()) {
-          console.error(
-            `[payment] ${provider.name} failed (${message}), falling back to ${FALLBACK_PROVIDER}`
-          );
-
-          const fallbackNotifyUrl = config.WARIMCP_WEBHOOK_BASE_URL
-            ? `${config.WARIMCP_WEBHOOK_BASE_URL}/api/v1/webhooks/${fallback.name}`
-            : "";
-
-          const result = await fallback.initiatePayment({
-            ...input,
-            notifyUrl: fallbackNotifyUrl,
+        console.error(
+          `[payment] ${provider.name} failed safely (${originalMessage}) — failing over to ${candidateName}`
+        );
+        try {
+          return await attempt(candidate, "initiated_fallback", {
+            originalProvider: provider.name,
+            originalError: originalMessage,
           });
-
-          // Update transaction with fallback provider
-          await db
-            .update(transactions)
-            .set({
-              provider: fallback.name,
-              providerReference: result.providerReference,
-              paymentUrl: result.paymentUrl,
-              status: result.status === "completed" ? "completed" : "pending",
-              updatedAt: new Date(),
-            })
-            .where(eq(transactions.id, tx.id));
-
+        } catch (candidateErr) {
+          lastError = candidateErr;
           await db.insert(auditLog).values({
             transactionId: tx.id,
-            action: "initiated_fallback",
-            actor: `provider:${fallback.name}`,
+            action: "failover_attempt_failed",
+            actor: `provider:${candidateName}`,
             details: {
-              providerReference: result.providerReference,
-              originalProvider: provider.name,
-              originalError: message,
+              error:
+                candidateErr instanceof Error ? candidateErr.message : "Unknown error",
             },
           });
-
-          return {
-            transactionId: tx.id,
-            provider: fallback.name,
-            providerReference: result.providerReference,
-            status: result.status === "completed" ? "completed" : "pending",
-            paymentUrl: result.paymentUrl,
-            amount: input.amount,
-            currency: input.currency,
-            idempotent: false,
-          };
+          if (!isSafeToFailover(candidateErr)) {
+            // Ambiguous failure — the payment may exist at this candidate.
+            // Do NOT try further providers.
+            break;
+          }
         }
-      } catch {
-        // Fallback also failed — fall through to original error
       }
     }
 
+    const finalMessage =
+      lastError instanceof Error ? lastError.message : originalMessage;
     await db
       .update(transactions)
       .set({
         status: "failed",
-        errorMessage: message,
+        errorMessage: finalMessage,
         updatedAt: new Date(),
       })
       .where(eq(transactions.id, tx.id));
 
-    throw err;
+    throw lastError;
   }
 }

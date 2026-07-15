@@ -24,6 +24,73 @@ export interface X402RoutePrices {
   read: string;
 }
 
+/** Built-in EURC contract addresses (Circle). Override via X402_EURC_ASSET. */
+const EURC_DEFAULT_ASSET: Record<string, string> = {
+  "eip155:8453": "0x60a3E35Cc302bFA44Cb288Bc5a4F316Fdb1adb42", // Base mainnet
+  "eip155:84532": "0x808456652fdb597867f38412077A9182bf77359F", // Base Sepolia
+};
+
+/** Convert a decimal string ("0.017") to an atomic token amount ("17000"). */
+export function decimalToAtomic(value: string, decimals = 6): string {
+  const [whole = "0", frac = ""] = value.trim().split(".");
+  if (!/^\d*$/.test(whole) || !/^\d*$/.test(frac) || frac.length > decimals) {
+    throw new Error(`invalid decimal amount: ${value}`);
+  }
+  const atomic = BigInt(whole || "0") * 10n ** BigInt(decimals) + BigInt(frac.padEnd(decimals, "0") || "0");
+  return atomic.toString();
+}
+
+/**
+ * Build the payment options for a route class. Always offers USDC (money
+ * format); optionally adds EURC as a second settlement asset. XOF is pegged
+ * to the euro (655.957 XOF/EUR), so EURC pricing carries zero FX drift for a
+ * WAEMU-based operator.
+ */
+export function buildAccepts(
+  cfg: {
+    X402_NETWORK: string;
+    X402_PAY_TO: string;
+    X402_PRICE_WRITE: string;
+    X402_PRICE_READ: string;
+    X402_ACCEPT_EURC: boolean;
+    X402_EURC_ASSET: string;
+    X402_EURC_NAME: string;
+    X402_EURC_VERSION: string;
+    X402_EURC_PRICE_WRITE: string;
+    X402_EURC_PRICE_READ: string;
+  },
+  kind: "write" | "read"
+): object[] {
+  const usdc = {
+    scheme: "exact" as const,
+    price: kind === "write" ? cfg.X402_PRICE_WRITE : cfg.X402_PRICE_READ,
+    network: cfg.X402_NETWORK,
+    payTo: cfg.X402_PAY_TO,
+  };
+  if (!cfg.X402_ACCEPT_EURC) return [usdc];
+
+  const asset = cfg.X402_EURC_ASSET || EURC_DEFAULT_ASSET[cfg.X402_NETWORK];
+  if (!asset) {
+    console.error(
+      `[x402] X402_ACCEPT_EURC=true but no EURC address known for ${cfg.X402_NETWORK} — set X402_EURC_ASSET. Offering USDC only.`
+    );
+    return [usdc];
+  }
+  const eurc = {
+    scheme: "exact" as const,
+    price: {
+      asset,
+      amount: decimalToAtomic(
+        kind === "write" ? cfg.X402_EURC_PRICE_WRITE : cfg.X402_EURC_PRICE_READ
+      ),
+      extra: { name: cfg.X402_EURC_NAME, version: cfg.X402_EURC_VERSION },
+    },
+    network: cfg.X402_NETWORK,
+    payTo: cfg.X402_PAY_TO,
+  };
+  return [usdc, eurc];
+}
+
 /**
  * Build the x402 payment middleware for the priced API routes.
  * Isolated so tests can inject a fake and boot without network access.
@@ -53,18 +120,13 @@ export async function buildX402Middleware(): Promise<RequestHandler> {
   // agents can find and pay for it programmatically.
   const { declareDiscoveryExtension } = await import("@x402/extensions/bazaar");
 
-  const accepts = (price: string) => ({
-    accepts: {
-      scheme: "exact" as const,
-      price,
-      network: cfg.X402_NETWORK as never,
-      payTo: cfg.X402_PAY_TO,
-    },
+  const accepts = (kind: "write" | "read") => ({
+    accepts: buildAccepts(cfg, kind) as never,
   });
 
   const routes = {
     "POST /api/v1/payments/initiate": {
-      ...accepts(cfg.X402_PRICE_WRITE),
+      ...accepts("write"),
       description: "Initiate a mobile-money/card payment in West Africa (returns checkout URL)",
       extensions: declareDiscoveryExtension({
         bodyType: "json",
@@ -93,7 +155,7 @@ export async function buildX402Middleware(): Promise<RequestHandler> {
       }),
     },
     "GET /api/v1/payments/:id": {
-      ...accepts(cfg.X402_PRICE_READ),
+      ...accepts("read"),
       description: "Verify a payment's status",
       extensions: declareDiscoveryExtension({
         input: {},
@@ -101,19 +163,19 @@ export async function buildX402Middleware(): Promise<RequestHandler> {
       }),
     },
     "POST /api/v1/payments/:id/refund": {
-      ...accepts(cfg.X402_PRICE_WRITE),
+      ...accepts("write"),
       description: "Refund a payment (full or partial)",
     },
     "GET /api/v1/payments": {
-      ...accepts(cfg.X402_PRICE_READ),
+      ...accepts("read"),
       description: "List transactions",
     },
     "POST /api/v1/payment-links": {
-      ...accepts(cfg.X402_PRICE_WRITE),
+      ...accepts("write"),
       description: "Create a shareable payment link",
     },
     "POST /api/v1/payouts/initiate": {
-      ...accepts(cfg.X402_PRICE_WRITE),
+      ...accepts("write"),
       description: "Disburse funds to a mobile-money wallet or bank account in West Africa",
       extensions: declareDiscoveryExtension({
         bodyType: "json",
@@ -140,7 +202,7 @@ export async function buildX402Middleware(): Promise<RequestHandler> {
       }),
     },
     "GET /api/v1/payouts/:id": {
-      ...accepts(cfg.X402_PRICE_READ),
+      ...accepts("read"),
       description: "Verify a payout's status",
     },
   };

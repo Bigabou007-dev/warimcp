@@ -5,6 +5,7 @@ import { verifyCinetPayWebhook, parseCinetPayEvent } from "./verify-cinetpay.js"
 import { verifyWaveWebhook, parseWaveEvent } from "./verify-wave.js";
 import { relayWebhook } from "./relay.js";
 import type { RelayPayload } from "./relay.js";
+import { creditTopupIfApplicable } from "../server/middleware/prepaid.js";
 
 interface WebhookResult {
   accepted: boolean;
@@ -91,6 +92,23 @@ export async function handleProviderWebhook(
       actor: `webhook:${provider}`,
       details: { eventType: parsed.eventType, newStatus: parsed.status },
     });
+
+    // Prepaid billing: a completed payment that is a WariMCP credit top-up
+    // credits the buyer's account. Idempotent (unique ledger transaction_id),
+    // so provider webhook replays cannot double-credit.
+    if (parsed.status === "completed") {
+      try {
+        await creditTopupIfApplicable(db, {
+          id: tx.id,
+          amount: tx.amount,
+          metadata: tx.metadata,
+        });
+      } catch (err) {
+        console.error(
+          `[billing] top-up crediting failed for tx ${tx.id}: ${err instanceof Error ? err.message : err}`
+        );
+      }
+    }
   }
 
   // Relay to callback URL if configured

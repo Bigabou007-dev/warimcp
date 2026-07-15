@@ -59,6 +59,39 @@ const envSchema = z.object({
     .string()
     .default("true")
     .transform((v) => v === "true" || v === "1"),
+
+  // --- EURC as a second x402 settlement asset (XOF is euro-pegged: 655.957/EUR,
+  // so EURC pricing has zero FX drift against the operator's home currency) ---
+  X402_ACCEPT_EURC: z
+    .string()
+    .default("false")
+    .transform((v) => v === "true" || v === "1"),
+  // Override the EURC contract address; empty = built-in default per network.
+  X402_EURC_ASSET: z.string().default(""),
+  // EIP-712 domain of the EURC contract (used by the exact scheme).
+  X402_EURC_NAME: z.string().default("EURC"),
+  X402_EURC_VERSION: z.string().default("2"),
+  // Prices denominated in EURC (decimal strings, 6-decimals token).
+  X402_EURC_PRICE_WRITE: z.string().default("0.017"),
+  X402_EURC_PRICE_READ: z.string().default("0.004"),
+
+  // --- Provider failover chain (payment initiation) ---
+  // Comma-separated providers tried in order when the requested provider fails
+  // SAFELY (4xx: payment definitely not initiated). 5xx/network errors never
+  // fail over — the payment may exist at the provider (double-charge risk).
+  WARIMCP_FAILOVER_CHAIN: z.string().default("fedapay"),
+
+  // --- Prepaid mobile-money credits (third billing door) ---
+  // API keys with a credit account are charged per call in XOF; top-ups are
+  // collected through WariMCP itself (dogfooding) via the operator's own PSP.
+  BILLING_PREPAID_ENABLED: z
+    .string()
+    .default("false")
+    .transform((v) => v === "true" || v === "1"),
+  BILLING_PRICE_WRITE_XOF: z.coerce.number().int().min(0).default(15),
+  BILLING_PRICE_READ_XOF: z.coerce.number().int().min(0).default(3),
+  BILLING_TOPUP_MIN_XOF: z.coerce.number().int().min(100).default(500),
+  BILLING_TOPUP_PROVIDER: z.string().default("fedapay"),
 });
 
 export type Config = z.infer<typeof envSchema>;

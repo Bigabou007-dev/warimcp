@@ -6,6 +6,7 @@ import { apiKeys } from "../../db/schema.js";
 
 /** Extended request properties set by auth middleware */
 export interface AuthenticatedRequest extends Request {
+  apiKeyId?: string;
   apiKeyLabel?: string;
   apiKeyPermissions?: string[];
   apiKeyRateLimit?: number;
@@ -40,6 +41,7 @@ export function createAuthMiddleware(db: PostgresJsDatabase) {
       .catch(() => {});
 
     // Attach key info to request
+    req.apiKeyId = key.id;
     req.apiKeyLabel = key.label;
     req.apiKeyPermissions = key.permissions ?? undefined;
     req.apiKeyRateLimit = key.rateLimitPerMinute ?? undefined;

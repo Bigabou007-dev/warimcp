@@ -124,3 +124,45 @@ export const auditLog = pgTable(
   },
   (t) => [index("idx_audit_tx").on(t.transactionId)]
 );
+
+// --- Prepaid mobile-money credits (billing door 3) ---
+// One credit account per API key; balance denominated in XOF (no subunits).
+// The ledger is append-only: topups carry the funding transaction id (unique,
+// so a replayed webhook can never double-credit); per-call charges carry NULL.
+export const creditAccounts = pgTable(
+  "credit_accounts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    apiKeyId: uuid("api_key_id")
+      .notNull()
+      .references(() => apiKeys.id),
+    balanceXof: bigint("balance_xof", { mode: "number" }).notNull().default(0),
+    totalToppedUpXof: bigint("total_topped_up_xof", { mode: "number" })
+      .notNull()
+      .default(0),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [uniqueIndex("idx_credit_api_key").on(t.apiKeyId)]
+);
+
+export const creditLedger = pgTable(
+  "credit_ledger",
+  {
+    id: serial("id").primaryKey(),
+    accountId: uuid("account_id")
+      .notNull()
+      .references(() => creditAccounts.id),
+    deltaXof: bigint("delta_xof", { mode: "number" }).notNull(), // + topup, - charge
+    reason: text("reason").notNull(), // topup | charge:<METHOD path>
+    transactionId: uuid("transaction_id").references(() => transactions.id).unique(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [index("idx_ledger_account").on(t.accountId)]
+);
