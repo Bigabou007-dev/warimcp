@@ -35,9 +35,28 @@ Requires Node >= 22 and PostgreSQL 16+.
 
 Set `WARIMCP_MODE=mock` to route all providers through the mock provider (no API keys needed).
 
+## Billing: API keys or x402 pay-per-call
+
+WariMCP has two billing doors on the HTTP API:
+
+1. **`X-Api-Key`** (default) — account holders, as before. Generate keys with `npm run db:seed-api-key`.
+2. **x402 pay-per-call** (optional) — with `X402_ENABLED=true`, requests **without** an API key can pay per call in **USDC on Base** via the [x402 protocol](https://x402.org). No account, no key — a human dev or an AI agent gets a `402` challenge, signs a USDC payment, and the request settles automatically. Priced per operation: writes (initiate/refund/payout/link) at `X402_PRICE_WRITE` (default $0.02), reads (verify/list) at `X402_PRICE_READ` (default $0.005).
+
+```bash
+X402_ENABLED=true
+X402_PAY_TO=0xYourWallet          # receives the USDC
+X402_NETWORK=eip155:8453          # Base mainnet (eip155:84532 = Base Sepolia for testing)
+```
+
+Rules of the road:
+- A present-but-invalid API key is **rejected (403)**, never silently downgraded to the payment flow.
+- With `X402_ENABLED=false` (default), behavior is identical to previous releases (missing key → 401).
+- Facilitator sync happens at boot with background retries — an unreachable facilitator never crashes the gateway; API-key traffic is unaffected and priced requests error until a sync succeeds.
+- The per-call fee is a **software/API fee paid in USDC to your wallet** — WariMCP still never touches the mobile-money funds themselves (BYOK, no custody).
+
 ## API Endpoints
 
-All payment/payout endpoints require an `X-Api-Key` header. Generate keys with `npm run db:seed-api-key`.
+All payment/payout endpoints require an `X-Api-Key` header **or an x402 payment** (see Billing above). Generate keys with `npm run db:seed-api-key`.
 
 | Method | Path | Auth | Description |
 |---|---|---|---|

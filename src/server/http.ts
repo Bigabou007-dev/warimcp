@@ -41,7 +41,11 @@ function safeError(err: unknown): { status: number; body: { error: string } } {
   return { status: 500, body: { error: "Internal server error" } };
 }
 
-export function createHttpServer(db: PostgresJsDatabase, port: number) {
+export function createHttpServer(
+  db: PostgresJsDatabase,
+  port: number,
+  billing?: express.RequestHandler
+) {
   const app = express();
 
   // Security headers
@@ -60,7 +64,9 @@ export function createHttpServer(db: PostgresJsDatabase, port: number) {
   app.use("/api/v1/webhooks", express.raw({ type: "*/*" }));
   app.use(express.json());
 
-  const auth = createAuthMiddleware(db);
+  // Billing door: dual X-Api-Key / x402 middleware when provided (see
+  // middleware/x402.ts), else the legacy API-key-only auth.
+  const auth = billing ?? createAuthMiddleware(db);
 
   // Health check — no auth
   app.get("/health", (_req, res) => {

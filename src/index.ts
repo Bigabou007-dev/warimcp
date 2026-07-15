@@ -20,7 +20,18 @@ async function main() {
   const transport = config.WARIMCP_TRANSPORT;
 
   if (transport === "http" || transport === "both") {
-    server = createHttpServer(db, config.WARIMCP_PORT);
+    let billing;
+    if (config.X402_ENABLED) {
+      const { buildX402Middleware, createBillingMiddleware } = await import(
+        "./server/middleware/x402.js"
+      );
+      const x402 = await buildX402Middleware();
+      billing = createBillingMiddleware(db, x402);
+      console.error(
+        `WariMCP x402 billing ENABLED — pay-per-call in USDC on ${config.X402_NETWORK} → ${config.X402_PAY_TO}`
+      );
+    }
+    server = createHttpServer(db, config.WARIMCP_PORT, billing);
   }
 
   if (transport === "stdio" || transport === "both") {

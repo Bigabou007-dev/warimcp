@@ -37,6 +37,28 @@ const envSchema = z.object({
   WARIMCP_WEBHOOK_BASE_URL: z.string().default(""),
   WARIMCP_RELAY_SECRET: z.string().default(""),
   // Manual-payment-collection config removed 2026-06-12 (custody feature deleted).
+
+  // --- x402 pay-per-call billing (dual door alongside X-Api-Key auth) ---
+  // When enabled, requests WITHOUT an X-Api-Key header may pay per call in
+  // USDC via the x402 protocol instead of holding an account.
+  X402_ENABLED: z
+    .string()
+    .default("false")
+    .transform((v) => v === "true" || v === "1"),
+  // Wallet that receives USDC. REQUIRED when X402_ENABLED=true.
+  X402_PAY_TO: z.string().default(""),
+  // CAIP-2 network id. Base mainnet: eip155:8453 · Base Sepolia: eip155:84532
+  X402_NETWORK: z.string().default("eip155:8453"),
+  X402_FACILITATOR_URL: z.string().default("https://facilitator.x402.org"),
+  // Money-format prices (converted to USDC by the x402 middleware).
+  X402_PRICE_WRITE: z.string().default("$0.02"), // initiate/refund/payout/link
+  X402_PRICE_READ: z.string().default("$0.005"), // verify/list
+  // Sync supported payment kinds from the facilitator (lazy, on first priced
+  // request). REQUIRED for challenges to be issued — only disable in tests.
+  X402_SYNC_ON_START: z
+    .string()
+    .default("true")
+    .transform((v) => v === "true" || v === "1"),
 });
 
 export type Config = z.infer<typeof envSchema>;
