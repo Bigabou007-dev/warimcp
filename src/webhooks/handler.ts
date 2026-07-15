@@ -5,7 +5,7 @@ import { verifyCinetPayWebhook, parseCinetPayEvent } from "./verify-cinetpay.js"
 import { verifyWaveWebhook, parseWaveEvent } from "./verify-wave.js";
 import { relayWebhook } from "./relay.js";
 import type { RelayPayload } from "./relay.js";
-import { creditTopupIfApplicable } from "../server/middleware/prepaid.js";
+import { creditTopupIfApplicable } from "../billing/credits.js";
 
 interface WebhookResult {
   accepted: boolean;

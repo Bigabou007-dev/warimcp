@@ -18,12 +18,6 @@ import { createAuthMiddleware } from "./auth.js";
  * auth middleware: missing key → 401.
  */
 
-/** Route prices, money-format strings (the x402 stack converts to USDC). */
-export interface X402RoutePrices {
-  write: string;
-  read: string;
-}
-
 /** Built-in EURC contract addresses (Circle). Override via X402_EURC_ASSET. */
 const EURC_DEFAULT_ASSET: Record<string, string> = {
   "eip155:8453": "0x60a3E35Cc302bFA44Cb288Bc5a4F316Fdb1adb42", // Base mainnet
@@ -229,22 +223,24 @@ export async function buildX402Middleware(): Promise<RequestHandler> {
         return false;
       }
     };
-    const ok = await sync(1);
-    if (!ok) {
-      let attempt = 2;
-      const retry = () => {
-        if (attempt > MAX_ATTEMPTS) {
-          console.error("[x402] giving up on facilitator sync — priced requests will error until restart");
-          return;
+    const sleep = (ms: number) =>
+      new Promise<void>((r) => setTimeout(r, ms).unref());
+
+    // First attempt is awaited so a healthy boot is fully validated; failures
+    // retry in a detached background loop (linear backoff, capped) and never
+    // crash or block the gateway. NOTE: the repo's withRetry() is deliberately
+    // NOT used here — its retryable-error filter would skip facilitator init
+    // errors, and we want retry-on-anything semantics for this path.
+    if (!(await sync(1))) {
+      void (async () => {
+        for (let attempt = 2; attempt <= MAX_ATTEMPTS; attempt++) {
+          await sleep(Math.min(attempt * 5_000, 60_000));
+          if (await sync(attempt)) return;
         }
-        const current = attempt++;
-        setTimeout(() => {
-          void sync(current).then((done) => {
-            if (!done) retry();
-          });
-        }, Math.min(current * 5_000, 60_000)).unref();
-      };
-      retry();
+        console.error(
+          "[x402] giving up on facilitator sync — priced requests will error until restart"
+        );
+      })();
     }
   }
 
@@ -257,28 +253,24 @@ export async function buildX402Middleware(): Promise<RequestHandler> {
 }
 
 /**
- * Create the combined billing middleware. Drop-in replacement for the old
- * `createAuthMiddleware(db)` on priced routes.
- *
- * @param db          database handle (API-key lookups)
- * @param x402        the x402 payment middleware, or null when disabled
+ * Create the combined billing middleware: API-key requests go through strict
+ * key auth; keyless requests go through the x402 payment door. The
+ * x402-disabled case never reaches here — http.ts falls back to plain
+ * `createAuthMiddleware(db)` when no billing middleware is provided.
  */
 export function createBillingMiddleware(
   db: PostgresJsDatabase,
-  x402: RequestHandler | null
+  x402: RequestHandler
 ): RequestHandler {
   const apiKeyAuth = createAuthMiddleware(db);
 
   return (req: Request, res: Response, next: NextFunction) => {
     // Door 1: an API key is present → strict key auth, success or 401/403.
+    // A present-but-invalid key is rejected, never downgraded to payment.
     if (req.headers["x-api-key"]) {
       return apiKeyAuth(req, res, next);
     }
-    // Door 2: no key → pay-per-call, when enabled.
-    if (x402) {
-      return x402(req, res, next);
-    }
-    // x402 disabled → legacy behavior (401 from the auth middleware).
-    return apiKeyAuth(req, res, next);
+    // Door 2: no key → pay-per-call.
+    return x402(req, res, next);
   };
 }

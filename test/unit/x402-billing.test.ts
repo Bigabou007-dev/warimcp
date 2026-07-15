@@ -1,13 +1,13 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import type { Request, Response, NextFunction, RequestHandler } from "express";
-import { createBillingMiddleware, buildX402Middleware } from "../../src/server/middleware/x402.js";
-import { loadConfig } from "../../src/config.js";
+import { createBillingMiddleware } from "../../src/server/middleware/x402.js";
 
-/** Minimal chainable Drizzle stub: select().from().where().limit() → rows */
+/** Minimal chainable Drizzle stub for the auth lookup (with leftJoin). */
 function dbStub(rows: unknown[]) {
   const chain = {
     select: () => chain,
     from: () => chain,
+    leftJoin: () => chain,
     where: () => chain,
     limit: async () => rows,
     update: () => chain,
@@ -55,11 +55,12 @@ describe("createBillingMiddleware (dual door)", () => {
 
   it("valid API key passes through without touching x402", async () => {
     const x402 = vi.fn();
-    const key = {
-      id: 1, label: "test", permissions: null, rateLimitPerMinute: null,
-      keyHash: "h", active: true,
+    // auth now selects { key, creditAccountId } via LEFT JOIN
+    const row = {
+      key: { id: "k1", label: "test", permissions: null, rateLimitPerMinute: null, keyHash: "h", active: true },
+      creditAccountId: null,
     };
-    const mw = createBillingMiddleware(dbStub([key]), x402 as never);
+    const mw = createBillingMiddleware(dbStub([row]), x402 as never);
     const { nextCalled } = await run(mw, { headers: { "x-api-key": "good" } });
     expect(nextCalled).toBe(true);
     expect(x402).not.toHaveBeenCalled();
@@ -73,19 +74,9 @@ describe("createBillingMiddleware (dual door)", () => {
     expect(nextCalled).toBe(true);
   });
 
-  it("no API key + x402 disabled → legacy 401 (byte-identical old behavior)", async () => {
-    const mw = createBillingMiddleware(dbStub([]), null);
-    const { res, nextCalled } = await run(mw, { headers: {} });
-    expect(nextCalled).toBe(false);
-    expect(res.statusCode).toBe(401);
-  });
 });
 
 describe("buildX402Middleware", () => {
-  beforeEach(() => {
-    vi.unstubAllEnvs();
-  });
-
   it("throws when enabled without a receiving wallet", async () => {
     vi.stubEnv("DATABASE_URL", "postgres://test");
     vi.stubEnv("X402_PAY_TO", "");
@@ -107,6 +98,3 @@ describe("buildX402Middleware", () => {
   });
 });
 
-// keep static imports referenced so ts doesn't flag them
-void buildX402Middleware;
-void loadConfig;

@@ -23,10 +23,12 @@ import { initiatePayout } from "../tools/initiate-payout.js";
 import { verifyPayout } from "../tools/verify-payout.js";
 import { handleProviderWebhook } from "../webhooks/handler.js";
 import { HttpError } from "../utils/http-error.js";
-import { createPrepaidChargeMiddleware, getBalance } from "./middleware/prepaid.js";
+import { createPrepaidChargeMiddleware } from "./middleware/prepaid.js";
+import { getBalance } from "../billing/credits.js";
 import type { AuthenticatedRequest } from "./middleware/auth.js";
 import { getConfig } from "../config.js";
-import crypto from "node:crypto";
+import { generateIdempotencyKey } from "../utils/idempotency.js";
+import { z } from "zod";
 
 /** Sanitize errors for HTTP responses — never leak provider internals. */
 function safeError(err: unknown): { status: number; body: { error: string } } {
@@ -71,16 +73,13 @@ export function createHttpServer(
   // Billing doors:
   //  1. X-Api-Key (always) — via `billing` (dual-door) or legacy auth.
   //  2. x402 pay-per-call — inside `billing` when enabled.
-  //  3. Prepaid XOF credits — charge middleware after auth; no-ops for keys
-  //     without a credit account and for x402-paid (keyless) requests.
-  const baseAuth = billing ?? createAuthMiddleware(db);
-  const prepaidCharge = createPrepaidChargeMiddleware(db);
-  const auth: express.RequestHandler = (req, res, next) => {
-    baseAuth(req, res, (err?: unknown) => {
-      if (err) return next(err as Error);
-      void prepaidCharge(req, res, next);
-    });
-  };
+  //  3. Prepaid XOF credits — per-route charge handlers after auth, with an
+  //     explicit price class (same read/write classes as the x402 route map).
+  //     Express composes handler arrays natively; billing routes use bare
+  //     `auth` and are therefore never charged.
+  const auth = billing ?? createAuthMiddleware(db);
+  const authWrite: express.RequestHandler[] = [auth, createPrepaidChargeMiddleware(db, "write")];
+  const authRead: express.RequestHandler[] = [auth, createPrepaidChargeMiddleware(db, "read")];
 
   // Health check — no auth
   app.get("/health", (_req, res) => {
@@ -95,7 +94,7 @@ export function createHttpServer(
   // Payment endpoints — auth + rate limit
   app.post(
     "/api/v1/payments/initiate",
-    auth,
+    ...authWrite,
     rateLimitMiddleware,
     validateBody(InitiatePaymentSchema),
     async (req, res) => {
@@ -109,7 +108,7 @@ export function createHttpServer(
     }
   );
 
-  app.get("/api/v1/payments/:id", auth, async (req, res) => {
+  app.get("/api/v1/payments/:id", ...authRead, async (req, res) => {
     try {
       const parsed = VerifyPaymentSchema.parse({ transactionId: req.params.id });
       const result = await verifyPayment(db, parsed.transactionId);
@@ -120,7 +119,7 @@ export function createHttpServer(
     }
   });
 
-  app.post("/api/v1/payments/:id/refund", auth, rateLimitMiddleware, async (req, res) => {
+  app.post("/api/v1/payments/:id/refund", ...authWrite, rateLimitMiddleware, async (req, res) => {
     try {
       const parsed = RefundPaymentSchema.parse({
         transactionId: req.params.id,
@@ -134,7 +133,7 @@ export function createHttpServer(
     }
   });
 
-  app.get("/api/v1/payments", auth, async (req, res) => {
+  app.get("/api/v1/payments", ...authRead, async (req, res) => {
     try {
       const parsed = ListTransactionsSchema.parse({
         provider: req.query.provider,
@@ -152,7 +151,7 @@ export function createHttpServer(
 
   app.post(
     "/api/v1/payment-links",
-    auth,
+    ...authWrite,
     rateLimitMiddleware,
     validateBody(GeneratePaymentLinkSchema),
     async (req, res) => {
@@ -169,7 +168,7 @@ export function createHttpServer(
   // Payout endpoints
   app.post(
     "/api/v1/payouts/initiate",
-    auth,
+    ...authWrite,
     rateLimitMiddleware,
     validateBody(InitiatePayoutSchema),
     async (req, res) => {
@@ -183,7 +182,7 @@ export function createHttpServer(
     }
   );
 
-  app.get("/api/v1/payouts/:id", auth, async (req, res) => {
+  app.get("/api/v1/payouts/:id", ...authRead, async (req, res) => {
     try {
       const parsed = VerifyPayoutSchema.parse({ payoutId: req.params.id });
       const result = await verifyPayout(db, parsed.payoutId);
@@ -208,7 +207,19 @@ export function createHttpServer(
     res.json(await getBalance(db, apiKeyId));
   });
 
-  app.post("/api/v1/billing/topup", auth, rateLimitMiddleware, async (req, res) => {
+  const TopupSchema = z.object({
+    amount: z.number().int().min(getConfig().BILLING_TOPUP_MIN_XOF).max(5_000_000),
+    provider: z.string().optional().default(""),
+    customerPhone: z.string().min(8),
+    customerName: z.string().optional().default(""),
+  });
+
+  app.post(
+    "/api/v1/billing/topup",
+    auth,
+    rateLimitMiddleware,
+    validateBody(TopupSchema),
+    async (req, res) => {
     try {
       const { apiKeyId, apiKeyLabel } = req as AuthenticatedRequest;
       if (!apiKeyId) {
@@ -220,28 +231,17 @@ export function createHttpServer(
         res.status(404).json({ error: "Prepaid billing is not enabled on this instance" });
         return;
       }
-      const amount = Number(req.body?.amount);
-      const customerPhone = String(req.body?.customerPhone ?? "");
-      if (!Number.isInteger(amount) || amount < cfg.BILLING_TOPUP_MIN_XOF) {
-        res.status(400).json({
-          error: `amount must be an integer >= ${cfg.BILLING_TOPUP_MIN_XOF} (XOF)`,
-        });
-        return;
-      }
-      if (customerPhone.length < 8) {
-        res.status(400).json({ error: "customerPhone is required (international format)" });
-        return;
-      }
+      const { amount, provider, customerPhone, customerName } = req.body;
 
       // Dogfood: collect the top-up through WariMCP's own payment pipeline,
       // on the operator's PSP account. Metadata marks it for crediting.
       const result = await initiatePayment(db, {
-        provider: String(req.body?.provider || cfg.BILLING_TOPUP_PROVIDER),
+        provider: provider || cfg.BILLING_TOPUP_PROVIDER,
         amount,
         currency: "XOF",
-        idempotencyKey: `topup-${crypto.randomUUID()}`,
+        idempotencyKey: generateIdempotencyKey(),
         description: "WariMCP API credit top-up",
-        customerName: String(req.body?.customerName || apiKeyLabel || "API customer"),
+        customerName: customerName || apiKeyLabel || "API customer",
         customerEmail: "",
         customerPhone,
         returnUrl: "",

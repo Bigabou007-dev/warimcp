@@ -2,7 +2,7 @@ import crypto from "node:crypto";
 import { eq, and } from "drizzle-orm";
 import type { Request, Response, NextFunction } from "express";
 import type { PostgresJsDatabase } from "drizzle-orm/postgres-js";
-import { apiKeys } from "../../db/schema.js";
+import { apiKeys, creditAccounts } from "../../db/schema.js";
 
 /** Extended request properties set by auth middleware */
 export interface AuthenticatedRequest extends Request {
@@ -10,6 +10,8 @@ export interface AuthenticatedRequest extends Request {
   apiKeyLabel?: string;
   apiKeyPermissions?: string[];
   apiKeyRateLimit?: number;
+  /** Set from the same lookup query (LEFT JOIN) — costs no extra round-trip. */
+  hasCreditAccount?: boolean;
 }
 
 export function createAuthMiddleware(db: PostgresJsDatabase) {
@@ -23,16 +25,20 @@ export function createAuthMiddleware(db: PostgresJsDatabase) {
 
     const keyHash = crypto.createHash("sha256").update(apiKey).digest("hex");
 
-    const [key] = await db
-      .select()
+    // LEFT JOIN credit_accounts so prepaid billing can tell whether this key
+    // is prepaid without a second query on the hot path.
+    const [row] = await db
+      .select({ key: apiKeys, creditAccountId: creditAccounts.id })
       .from(apiKeys)
+      .leftJoin(creditAccounts, eq(creditAccounts.apiKeyId, apiKeys.id))
       .where(and(eq(apiKeys.keyHash, keyHash), eq(apiKeys.active, true)))
       .limit(1);
 
-    if (!key) {
+    if (!row) {
       res.status(403).json({ error: "Invalid API key" });
       return;
     }
+    const key = row.key;
 
     // Update last used timestamp (fire-and-forget)
     db.update(apiKeys)
@@ -45,6 +51,7 @@ export function createAuthMiddleware(db: PostgresJsDatabase) {
     req.apiKeyLabel = key.label;
     req.apiKeyPermissions = key.permissions ?? undefined;
     req.apiKeyRateLimit = key.rateLimitPerMinute ?? undefined;
+    req.hasCreditAccount = row.creditAccountId !== null;
 
     next();
   };

@@ -1,5 +1,12 @@
 import { z } from "zod";
 
+/** "true"/"1" → true; anything else → false. Shared by all boolean flags. */
+const boolEnv = (def: "true" | "false" = "false") =>
+  z
+    .string()
+    .default(def)
+    .transform((v) => v === "true" || v === "1");
+
 const envSchema = z.object({
   WARIMCP_MODE: z.enum(["mock", "sandbox", "live"]).default("mock"),
   WARIMCP_TRANSPORT: z.enum(["stdio", "http", "both"]).default("both"),
@@ -41,10 +48,7 @@ const envSchema = z.object({
   // --- x402 pay-per-call billing (dual door alongside X-Api-Key auth) ---
   // When enabled, requests WITHOUT an X-Api-Key header may pay per call in
   // USDC via the x402 protocol instead of holding an account.
-  X402_ENABLED: z
-    .string()
-    .default("false")
-    .transform((v) => v === "true" || v === "1"),
+  X402_ENABLED: boolEnv(),
   // Wallet that receives USDC. REQUIRED when X402_ENABLED=true.
   X402_PAY_TO: z.string().default(""),
   // CAIP-2 network id. Base mainnet: eip155:8453 · Base Sepolia: eip155:84532
@@ -55,17 +59,11 @@ const envSchema = z.object({
   X402_PRICE_READ: z.string().default("$0.005"), // verify/list
   // Sync supported payment kinds from the facilitator (lazy, on first priced
   // request). REQUIRED for challenges to be issued — only disable in tests.
-  X402_SYNC_ON_START: z
-    .string()
-    .default("true")
-    .transform((v) => v === "true" || v === "1"),
+  X402_SYNC_ON_START: boolEnv("true"),
 
   // --- EURC as a second x402 settlement asset (XOF is euro-pegged: 655.957/EUR,
   // so EURC pricing has zero FX drift against the operator's home currency) ---
-  X402_ACCEPT_EURC: z
-    .string()
-    .default("false")
-    .transform((v) => v === "true" || v === "1"),
+  X402_ACCEPT_EURC: boolEnv(),
   // Override the EURC contract address; empty = built-in default per network.
   X402_EURC_ASSET: z.string().default(""),
   // EIP-712 domain of the EURC contract (used by the exact scheme).
@@ -84,10 +82,7 @@ const envSchema = z.object({
   // --- Prepaid mobile-money credits (third billing door) ---
   // API keys with a credit account are charged per call in XOF; top-ups are
   // collected through WariMCP itself (dogfooding) via the operator's own PSP.
-  BILLING_PREPAID_ENABLED: z
-    .string()
-    .default("false")
-    .transform((v) => v === "true" || v === "1"),
+  BILLING_PREPAID_ENABLED: boolEnv(),
   BILLING_PRICE_WRITE_XOF: z.coerce.number().int().min(0).default(15),
   BILLING_PRICE_READ_XOF: z.coerce.number().int().min(0).default(3),
   BILLING_TOPUP_MIN_XOF: z.coerce.number().int().min(100).default(500),

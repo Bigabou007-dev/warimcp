@@ -2,7 +2,6 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { Request, Response, NextFunction } from "express";
 import { resolveFailoverChain } from "../../src/tools/initiate-payment.js";
 import { decimalToAtomic, buildAccepts } from "../../src/server/middleware/x402.js";
-import { loadConfig } from "../../src/config.js";
 
 beforeEach(() => {
   vi.unstubAllEnvs();
@@ -98,15 +97,16 @@ describe("createPrepaidChargeMiddleware", () => {
 
   async function runMw(
     envEnabled: boolean,
-    reqOver: Partial<Request> & { apiKeyId?: string },
-    deps: { charge?: unknown; hasAccount?: unknown }
+    kind: "write" | "read",
+    reqOver: Partial<Request> & { apiKeyId?: string; hasCreditAccount?: boolean },
+    charge: unknown
   ) {
     vi.stubEnv("BILLING_PREPAID_ENABLED", envEnabled ? "true" : "false");
     vi.resetModules();
     const { createPrepaidChargeMiddleware } = await import(
       "../../src/server/middleware/prepaid.js"
     );
-    const mw = createPrepaidChargeMiddleware({} as never, deps as never);
+    const mw = createPrepaidChargeMiddleware({} as never, kind, { charge } as never);
     const { req, res, headers } = mockReqRes(reqOver);
     let nextCalled = false;
     await mw(req, res, (() => { nextCalled = true; }) as NextFunction);
@@ -115,58 +115,48 @@ describe("createPrepaidChargeMiddleware", () => {
 
   it("passes through when prepaid disabled", async () => {
     const charge = vi.fn();
-    const r = await runMw(false, { apiKeyId: "k1" }, { charge, hasAccount: async () => true });
+    const r = await runMw(false, "write", { apiKeyId: "k1", hasCreditAccount: true }, charge);
     expect(r.nextCalled).toBe(true);
     expect(charge).not.toHaveBeenCalled();
   });
 
   it("passes through for keyless (x402-paid) requests", async () => {
     const charge = vi.fn();
-    const r = await runMw(true, {}, { charge, hasAccount: async () => true });
+    const r = await runMw(true, "write", {}, charge);
     expect(r.nextCalled).toBe(true);
     expect(charge).not.toHaveBeenCalled();
   });
 
   it("passes through for keys without a credit account (subscription keys)", async () => {
     const charge = vi.fn();
-    const r = await runMw(true, { apiKeyId: "k1" }, { charge, hasAccount: async () => false });
+    const r = await runMw(true, "write", { apiKeyId: "k1", hasCreditAccount: false }, charge);
     expect(r.nextCalled).toBe(true);
     expect(charge).not.toHaveBeenCalled();
   });
 
-  it("charges write price on POST and exposes the new balance", async () => {
+  it("charges the write price for a write route and exposes the new balance", async () => {
     const charge = vi.fn(async () => 985);
-    const r = await runMw(true, { apiKeyId: "k1" }, { charge, hasAccount: async () => true });
+    const r = await runMw(true, "write", { apiKeyId: "k1", hasCreditAccount: true }, charge);
     expect(r.nextCalled).toBe(true);
     expect(charge).toHaveBeenCalledWith({}, "k1", 15, "charge:POST /api/v1/payments/initiate");
     expect(r.headers["X-Credit-Balance-XOF"]).toBe("985");
   });
 
-  it("charges read price on GET", async () => {
+  it("charges the read price for a read route (by class, not HTTP verb)", async () => {
     const charge = vi.fn(async () => 997);
-    await runMw(true, { apiKeyId: "k1", method: "GET", path: "/api/v1/payments" } as never, {
-      charge,
-      hasAccount: async () => true,
-    });
+    await runMw(
+      true,
+      "read",
+      { apiKeyId: "k1", hasCreditAccount: true, method: "GET", path: "/api/v1/payments" } as never,
+      charge
+    );
     expect(charge).toHaveBeenCalledWith({}, "k1", 3, "charge:GET /api/v1/payments");
   });
 
   it("402s with top-up pointer when balance is insufficient", async () => {
     const charge = vi.fn(async () => null);
-    const r = await runMw(true, { apiKeyId: "k1" }, { charge, hasAccount: async () => true });
+    const r = await runMw(true, "write", { apiKeyId: "k1", hasCreditAccount: true }, charge);
     expect(r.nextCalled).toBe(false);
     expect(r.res.statusCode).toBe(402);
   });
-
-  it("never charges the billing endpoints themselves", async () => {
-    const charge = vi.fn();
-    const r = await runMw(true, { apiKeyId: "k1", path: "/api/v1/billing/topup" } as never, {
-      charge,
-      hasAccount: async () => true,
-    });
-    expect(r.nextCalled).toBe(true);
-    expect(charge).not.toHaveBeenCalled();
-  });
 });
-
-void loadConfig;
