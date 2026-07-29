@@ -1,13 +1,23 @@
 # WariMCP — Recovery Protocol
 
-**Target:** Restore WariMCP to a fresh host in under 30 minutes.
+> **STATUS: PHASE1 — Parked awaiting sandbox keys** (per System Registry, MEMORY.md)
+> **Last verified: 2026-05-14**
+>
+> WariMCP has no live data and no live traffic. Revival happens only when MTN / Moneroo / FedaPay sandbox keys are issued. Until then, this document is a forward-looking template — most steps below do NOT apply to a PHASE1 service because there is nothing to restore (no DB rows, no in-flight transactions, no NPM proxy host, no logs).
+>
+> When sandbox keys land, follow the steps below in order; they assume a fresh host with no prior WariMCP state.
+
+**Target (post-revival):** Restore WariMCP to a fresh host in under 30 minutes.
 
 ## Prerequisites on Fresh Host
 - Ubuntu 22.04+
 - Docker + Docker Compose installed
 - Nginx Proxy Manager running with `npm_proxy` network
+- Sandbox API keys for MTN, Moneroo, FedaPay (none of these exist yet — this is the blocker)
 
 ## Step-by-Step Restore
+
+> N.B. for PHASE1: steps 3 (DB restore) and 6 (queue reconciliation) do NOT apply — there is no backup dump to restore and no in-flight transactions to reconcile. Skip those steps until WariMCP has carried at least one live transaction.
 
 ### Step 1 — Restore Files (5 min)
 ```bash
