@@ -1,5 +1,4 @@
 import { getConfig } from "../config.js";
-import { withRetry } from "./retry.js";
 import { HttpError } from "../utils/http-error.js";
 import type {
   BaseProvider,
@@ -122,20 +121,22 @@ export class Hub2Provider implements BaseProvider {
       customerReference,
     };
 
-    const intentData = await withRetry(async () => {
-      const res = await fetch(`${base}/payment-intents`, {
-        method: "POST",
-        headers: this.serverHeaders(),
-        body: JSON.stringify(intentPayload),
-        signal: AbortSignal.timeout(30_000),
-      });
-
-      if (!res.ok) {
-        throw new HttpError(`Hub2 intent HTTP ${res.status}: ${await res.text()}`, res.status);
-      }
-
-      return res.json() as Promise<Record<string, unknown>>;
+    // NO retry: non-idempotent POST, double-charge risk. If Hub2 created the intent
+    // but the response was lost (5xx / network error), an automatic retry would
+    // double-create it. The caller retries from scratch with the same idempotencyKey;
+    // Hub2's purchaseReference idempotency semantics are unverified.
+    const intentRes = await fetch(`${base}/payment-intents`, {
+      method: "POST",
+      headers: this.serverHeaders(),
+      body: JSON.stringify(intentPayload),
+      signal: AbortSignal.timeout(30_000),
     });
+
+    if (!intentRes.ok) {
+      throw new HttpError(`Hub2 intent HTTP ${intentRes.status}: ${await intentRes.text()}`, intentRes.status);
+    }
+
+    const intentData = (await intentRes.json()) as Record<string, unknown>;
 
     const intentId = intentData.id as string;
     const token = intentData.token as string;
@@ -164,20 +165,20 @@ export class Hub2Provider implements BaseProvider {
       mobileMoney,
     };
 
-    const attemptData = await withRetry(async () => {
-      const res = await fetch(`${base}/payment-intents/${intentId}/payments`, {
-        method: "POST",
-        headers: this.tokenHeaders(token),
-        body: JSON.stringify(attemptPayload),
-        signal: AbortSignal.timeout(30_000),
-      });
-
-      if (!res.ok) {
-        throw new HttpError(`Hub2 attempt HTTP ${res.status}: ${await res.text()}`, res.status);
-      }
-
-      return res.json() as Promise<Record<string, unknown>>;
+    // NO retry: non-idempotent POST, double-charge risk — this is the call that
+    // triggers the mobile-money debit. Same policy as the intent POST above.
+    const attemptRes = await fetch(`${base}/payment-intents/${intentId}/payments`, {
+      method: "POST",
+      headers: this.tokenHeaders(token),
+      body: JSON.stringify(attemptPayload),
+      signal: AbortSignal.timeout(30_000),
     });
+
+    if (!attemptRes.ok) {
+      throw new HttpError(`Hub2 attempt HTTP ${attemptRes.status}: ${await attemptRes.text()}`, attemptRes.status);
+    }
+
+    const attemptData = (await attemptRes.json()) as Record<string, unknown>;
 
     const attemptStatus = attemptData.status as string | undefined;
     const payments = attemptData.payments as Array<Record<string, unknown>> | undefined;
@@ -216,7 +217,7 @@ export class Hub2Provider implements BaseProvider {
   }
 
   async verifyPayment(_ref: string): Promise<PaymentVerifyResult> {
-    throw new Error("Hub2 payouts not supported in v1");
+    throw new Error("Hub2 verifyPayment not supported in v1");
   }
 
   async initiatePayout(_input: PayoutInitiateInput): Promise<PayoutInitiateResult> {

@@ -80,6 +80,13 @@ describe("Hub2Provider.initiatePayment", () => {
     await expect(new Hub2Provider().initiatePayment({
       ...baseInput, returnUrl: "http://insecure.example/r", metadata: { provider: "wave" },
     })).rejects.toThrow(/https/);
-    expect(calls.length).toBeLessThan(2);      // attempt call never made
+    expect(calls.length).toBe(0);              // guard fires before ANY network call
+  });
+
+  it("does NOT retry the intent POST on 500 (non-idempotent, double-charge risk)", async () => {
+    const calls = mockFetchSequence([{ status: 500, json: { error: "internal" } }]);
+    await expect(new Hub2Provider().initiatePayment(baseInput))
+      .rejects.toThrow(/Hub2 intent HTTP 500/);
+    expect(calls.length).toBe(1);              // exactly one POST — no automatic retry
   });
 });
