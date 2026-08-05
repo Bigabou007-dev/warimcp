@@ -170,6 +170,19 @@ The HTTP transport is used in Docker (`WARIMCP_TRANSPORT=http`). For MCP stdio a
 
 **Phase 3:** PAPSS pan-African corridor (CI to KE/NG/GH). Multi-currency settlement. Bulk payouts.
 
+## Production status
+
+> **Sandbox-first spike (2026-08-05, board-reviewed).** The agentic bridge
+> (`authorize_and_pay`) is NOT production-ready for multi-merchant use. Known
+> gaps, tracked as product requirements in
+> `docs/superpowers/specs/2026-08-05-track4-whatsapp-merchant-product.md` §10:
+> trusted agent keys are env-based (a per-merchant key registry is required),
+> the replay-nonce store is in-memory (a persistent store is required), and
+> payment mandates carry no customer identity. No tenant isolation exists yet:
+> do not run more than one merchant on a shared instance. No real-money
+> operation before the regulatory gate chain completes (RCCM, ARTCI, counsel
+> review).
+
 ## License
 
 [MIT](LICENSE)
