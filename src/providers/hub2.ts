@@ -216,8 +216,38 @@ export class Hub2Provider implements BaseProvider {
     };
   }
 
-  async verifyPayment(_ref: string): Promise<PaymentVerifyResult> {
-    throw new Error("Hub2 verifyPayment not supported in v1");
+  async verifyPayment(providerReference: string): Promise<PaymentVerifyResult> {
+    if (!this.isConfigured()) {
+      throw new Error("Hub2 not configured: HUB2_API_KEY and HUB2_MERCHANT_ID required");
+    }
+
+    const base = this.baseUrl();
+
+    // GET endpoint shape not exercised by lagoon-website — Task 7's sandbox smoke confirms it.
+    const res = await fetch(`${base}/payment-intents/${providerReference}`, {
+      method: "GET",
+      headers: this.serverHeaders(),
+      signal: AbortSignal.timeout(30_000),
+    });
+
+    if (!res.ok) {
+      throw new HttpError(`Hub2 verify HTTP ${res.status}: ${await res.text()}`, res.status);
+    }
+
+    const data = (await res.json()) as Record<string, unknown>;
+
+    const status = normalizeHub2Status(data.status as string);
+    const amount = data.amount as number | undefined;
+    const currency = data.currency as string | undefined;
+
+    return {
+      providerReference,
+      status,
+      amount,
+      currency,
+      paymentMethod: "HUB2",
+      raw: data,
+    };
   }
 
   async initiatePayout(_input: PayoutInitiateInput): Promise<PayoutInitiateResult> {
