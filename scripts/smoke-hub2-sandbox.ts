@@ -15,6 +15,7 @@
 
 import "dotenv/config";
 import { hub2Provider } from "../src/providers/hub2.js";
+import { HttpError } from "../src/utils/http-error.js";
 
 const apiKey = process.env.HUB2_API_KEY ?? "";
 const merchantId = process.env.HUB2_MERCHANT_ID ?? "";
@@ -72,21 +73,35 @@ async function main() {
 
   const POLL_INTERVAL_MS = 5_000;
   const MAX_POLLS = Math.ceil(60_000 / POLL_INTERVAL_MS);
+  const NON_TRANSIENT_STATUSES = [401, 403, 404];
   let polls = 0;
+  let anyPollSucceeded = false;
+  let terminalReached = false;
 
   while (polls < MAX_POLLS) {
     polls++;
     try {
       const verifyResult = await hub2Provider.verifyPayment(intentRef);
+      anyPollSucceeded = true;
       console.log(
         `[smoke-hub2] poll ${polls}/${MAX_POLLS} — verifyPayment response:`,
         JSON.stringify(verifyResult, null, 2)
       );
       if (verifyResult.status === "completed" || verifyResult.status === "failed") {
         console.log(`[smoke-hub2] Terminal status "${verifyResult.status}" reached — done.`);
+        terminalReached = true;
         break;
       }
     } catch (err) {
+      // Non-transient HTTP errors (auth failure, wrong endpoint) will not
+      // recover by polling — abort immediately with a failure exit code.
+      if (err instanceof HttpError && NON_TRANSIENT_STATUSES.includes(err.status)) {
+        console.error(
+          `[smoke-hub2] smoke FAILED — verifyPayment returned HTTP ${err.status} (non-transient): ${err.message}\n` +
+          `Check HUB2_API_KEY / HUB2_MERCHANT_ID and the verify endpoint path.`
+        );
+        process.exit(1);
+      }
       console.error(`[smoke-hub2] poll ${polls}/${MAX_POLLS} — verifyPayment FAILED:`, err);
       // Continue polling on transient errors
     }
@@ -96,7 +111,14 @@ async function main() {
     }
   }
 
-  if (polls >= MAX_POLLS) {
+  if (!anyPollSucceeded) {
+    console.error(
+      `[smoke-hub2] smoke FAILED — all ${MAX_POLLS} verifyPayment polls errored; no successful response from Hub2.`
+    );
+    process.exit(1);
+  }
+
+  if (!terminalReached) {
     console.log("[smoke-hub2] 60s elapsed without terminal status — smoke complete (no error).");
   }
 

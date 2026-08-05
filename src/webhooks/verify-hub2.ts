@@ -25,13 +25,20 @@ export function verifyHub2Webhook(
   signatureHeader: string | undefined,
   opts: Hub2VerifyOpts
 ): Hub2VerifyResult {
+  if (!opts.secret) {
+    return { ok: false, reason: "webhook secret not configured" };
+  }
+
   if (!signatureHeader) {
     return { ok: false, reason: "missing signature header" };
   }
 
+  // Normalize before parsing so uppercase hex from Hub2 isn't misread as malformed
+  const header = signatureHeader.toLowerCase();
+
   // Parse t=...,v1=... header
-  const tMatch = signatureHeader.match(/(?:^|,)t=(\d+)(?:,|$)/);
-  const v1Match = signatureHeader.match(/(?:^|,)v1=([0-9a-f]+)(?:,|$)/);
+  const tMatch = header.match(/(?:^|,)t=(\d+)(?:,|$)/);
+  const v1Match = header.match(/(?:^|,)v1=([^,]+)(?:,|$)/);
 
   if (!tMatch || !v1Match) {
     return { ok: false, reason: "malformed signature header" };
@@ -39,6 +46,13 @@ export function verifyHub2Webhook(
 
   const t = parseInt(tMatch[1], 10);
   const v1 = v1Match[1];
+
+  // Validate hex BEFORE decoding — makes the equal-length guarantee on
+  // decoded buffers airtight (Buffer.from(_, "hex") silently truncates
+  // at the first invalid character instead of throwing).
+  if (!/^[0-9a-f]+$/.test(v1)) {
+    return { ok: false, reason: "malformed v1 value" };
+  }
 
   // Skew check ±300s
   const nowSeconds = Math.floor(opts.nowMs / 1000);

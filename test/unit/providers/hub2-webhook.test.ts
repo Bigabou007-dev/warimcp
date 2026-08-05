@@ -30,4 +30,16 @@ describe("verifyHub2Webhook", () => {
   it("rejects missing header", () => {
     expect(verifyHub2Webhook("{}", undefined, { secret: SECRET, expectedMode: "sandbox", nowMs: now }).ok).toBe(false);
   });
+  it("rejects non-hex v1 value (64 chars of g) as malformed", () => {
+    const t = Math.floor(now / 1000);
+    const r = verifyHub2Webhook("{}", `t=${t},v1=${"g".repeat(64)}`, { secret: SECRET, expectedMode: "sandbox", nowMs: now });
+    expect(r.ok).toBe(false);
+    expect(r.reason).toMatch(/malformed/);
+  });
+  it("rejects with 'webhook secret not configured' when secret is empty", () => {
+    const body = JSON.stringify({ mode: "sandbox" });
+    const r = verifyHub2Webhook(body, sign(body, Math.floor(now / 1000)), { secret: "", expectedMode: "sandbox", nowMs: now });
+    expect(r.ok).toBe(false);
+    expect(r.reason).toBe("webhook secret not configured");
+  });
 });
