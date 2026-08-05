@@ -1,10 +1,10 @@
-Script started on 2026-08-05 14:42:36+02:00 [COMMAND="npx tsx scripts/demo-agent-payment.ts" <not executed on terminal>]
+Script started on 2026-08-05 14:47:19+02:00 [COMMAND="npx tsx scripts/demo-agent-payment.ts" <not executed on terminal>]
 [1G[0K⠙[1G[0K
 ────────────────────────────────────────────────────────────
   WariMCP — Demo Paiement Agent  [2026-08-05]
 ────────────────────────────────────────────────────────────
 Simulation transport WhatsApp (Meta vérification en attente).
-provider: mock  (sandbox credentials pending — swap point: metadata.provider)
+provider: mock  (sandbox credentials pending — swap point: 'provider' const in this script)
 
 
 ────────────────────────────────────────────────────────────
@@ -26,14 +26,14 @@ provider: mock  (sandbox credentials pending — swap point: metadata.provider)
   Étape 2 : Génération du mandat signé (côté agent)
 ────────────────────────────────────────────────────────────
 Clé Ed25519 générée en mémoire (éphémère — jetée après la session).
-Fingerprint PEM public : MCowBQYDK2VwAyEAo+4DT2SG…
+Fingerprint PEM public : MCowBQYDK2VwAyEAKoeM9NUS…
 Mandat construit :
   merchantRef  : ORDER-20260805-0042
   amount       : 20000 XOF
   currency     : XOF
-  nonce        : nonce-1785933757821-0bjh41jstf6l…
-  expiresAtMs  : 2026-08-05T12:47:37.821Z
-  signature    : KAnqHXYLwGB234lvrKE36a54m1SZAQfw… (base64 Ed25519)
+  nonce        : nonce-1785934041229-8vp2injwba…
+  expiresAtMs  : 2026-08-05T12:52:21.229Z
+  signature    : tusHEy71ZlOE3Z2whSqfd6Hv0RbBiiT+… (base64 Ed25519)
 
 
 ────────────────────────────────────────────────────────────
@@ -42,9 +42,9 @@ Mandat construit :
 Vérification du mandat contre WARIMCP_TRUSTED_AGENT_KEYS…
 ✓ authorized : true
   transactionId     : 00000000-0000-0000-0000-000000000042
-  providerReference : MOCK-fb8a877f-7fe
+  providerReference : MOCK-3071d714-878
   status            : completed
-  paymentUrl        : https://mock.warimcp.local/pay/MOCK-fb8a877f-7fe
+  paymentUrl        : https://mock.warimcp.local/pay/MOCK-3071d714-878
   provider          : mock  (mock — sandbox creds pending)
 
 
@@ -60,7 +60,7 @@ En production : poll verify_payment jusqu'à status=completed.
 ────────────────────────────────────────────────────────────
 🤖 Agent   │ ✅ Votre paiement de 20 000 XOF a été initié.
 🤖 Agent   │    Référence commande : ORDER-20260805-0042
-🤖 Agent   │    Référence paiement : MOCK-fb8a877f-7fe
+🤖 Agent   │    Référence paiement : MOCK-3071d714-878
 🤖 Agent   │    Vous recevrez une confirmation SMS dans quelques instants.
 👤 Client  │ Merci beaucoup ! 🙏
 
@@ -68,11 +68,11 @@ En production : poll verify_payment jusqu'à status=completed.
 ────────────────────────────────────────────────────────────
   Étape 6 : Ligne de réconciliation (list_transactions)
 ────────────────────────────────────────────────────────────
-Équivalent list_transactions { provider: 'mock', status: 'pending' } :
+Équivalent list_transactions { provider: 'mock' } :
 
 merchantRef                 amount      status      providerReference
 ────────────────────────────────────────────────────────────────────────
-ORDER-20260805-0042         20000 XOF   completed   MOCK-fb8a877f-7fe
+ORDER-20260805-0042         20000 XOF   completed   MOCK-3071d714-878
 
 
 ────────────────────────────────────────────────────────────
@@ -88,4 +88,4 @@ Changements pour production :
      jusqu'à la levée des obligations réglementaires. Voir ROADMAP.md §Phase 2.
 
 [1G[0K⠙[1G[0K
-Script done on 2026-08-05 14:42:37+02:00 [COMMAND_EXIT_CODE="0"]
+Script done on 2026-08-05 14:47:21+02:00 [COMMAND_EXIT_CODE="0"]

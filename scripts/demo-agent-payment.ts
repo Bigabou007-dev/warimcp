@@ -120,7 +120,7 @@ function chat(speaker: "CLIENT" | "AGENT", msg: string) {
 async function run() {
   separator("WariMCP — Demo Paiement Agent  [2026-08-05]");
   print("Simulation transport WhatsApp (Meta vérification en attente).");
-  print("provider: mock  (sandbox credentials pending — swap point: metadata.provider)");
+  print("provider: mock  (sandbox credentials pending — swap point: 'provider' const in this script)");
   print("");
 
   // --- Scene 1: customer conversation ---
@@ -180,7 +180,8 @@ async function run() {
   const { db, getRows } = makeStubDb();
 
   // SWAP POINT: change "mock" to "hub2" (or "fedapay") when sandbox creds land.
-  // Also update metadata.provider in src/tools/authorize-and-pay.ts line ~81.
+  // Single change — the provider value threads through handleAuthorizeAndPay to
+  // initiatePayment/getProvider unchanged; no source edit is needed.
   const provider = "mock";
 
   const result = await handleAuthorizeAndPay(db, {
@@ -226,7 +227,7 @@ async function run() {
   const storedRows = getRows();
   const row = storedRows[storedRows.length - 1];
 
-  print("Équivalent list_transactions { provider: 'mock', status: 'pending' } :");
+  print("Équivalent list_transactions { provider: 'mock' } :");
   print("");
   print(
     [

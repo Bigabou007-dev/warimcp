@@ -23,15 +23,19 @@ An end-to-end merchant payment flow driven entirely by an AI agent:
 | `handleAuthorizeAndPay` logic | **Real** — production code path, no mocks at the function level |
 | Nonce replay protection | **Real** — module-level `seenNonces` Set active |
 
-## Swap points for sandbox / production
+## Swap point for sandbox / production
+
+**Single change: the `provider` value in `scripts/demo-agent-payment.ts`.**
 
 ```typescript
 // In scripts/demo-agent-payment.ts:
 const provider = "mock";  // <-- SWAP: "hub2" | "fedapay" once sandbox creds provisioned
-
-// In src/tools/authorize-and-pay.ts line ~81:
-metadata: { provider, mandateMerchantRef: mandate.merchantRef }
 ```
+
+No source edit is needed anywhere else — the provider value threads from the demo's
+call argument through `handleAuthorizeAndPay` to `initiatePayment`/`getProvider`
+unchanged, and `metadata.provider` in `src/tools/authorize-and-pay.ts` simply records
+whatever value was passed.
 
 Once Hub2 sandbox credentials land in `.env` (`HUB2_API_KEY`, `HUB2_MERCHANT_ID`), change
 `provider` to `"hub2"` and re-run `npx tsx scripts/demo-agent-payment.ts`.
@@ -49,6 +53,7 @@ Summary of run:
 - `authorized: true`
 - `providerReference`: `MOCK-<uuid-prefix>` (deterministic mock format)
 - `status`: `completed` (mock provider returns completed immediately)
+- `paymentUrl`: `https://mock.warimcp.local/pay/MOCK-<uuid-prefix>` (the mock provider always returns a URL — verified in `src/providers/mock.ts`)
 - `transactionId`: `00000000-0000-0000-0000-000000000042` (stub DB fixed UUID)
 - Test suite: **78/78 passed** (`npx vitest run`) — demo added zero regressions
 
