@@ -13,7 +13,10 @@ demo artifact (2026-08-05). This spec elaborates; it does NOT override the desig
 (WhatsApp / IG / FB), not e-commerce sites (U.S. Trade.gov Country Commercial Guide).
 The dominant checkout today is "send to my Wave number and screenshot me."
 This exposes merchants to fake screenshots and produces ~2h/day of manual
-reconciliation (both HIGH-confidence, cross-confirmed — research appendix §Merchant pain).
+reconciliation (research appendix §Merchant pain ground truth — rated HIGH,
+cross-confirmed; the appendix names no single primary source for the 2h figure,
+so the pilot (§6) is its primary validation, per the appendix's own rule that
+merchant conversations outrank quoted statistics).
 No platform or PSP owns an integrated WhatsApp + XOF mobile-money flow in French:
 global BSPs (HelloDuty, WATI) are USD-priced, English-first, no Wave/OM rails;
 PayDunya / FedaPay / CinetPay offer shareable links, not in-chat checkout
@@ -243,6 +246,6 @@ performance concern.
 3. Meta verification timeline post-RCCM; BSP choice (HelloDuty vs. other) if delayed.
 4. Pilot merchant recruitment channel — owner's network vs. cold outreach.
 5. Product name for Track 4 (not needed before pilot end).
-6. CinetPay: the research appendix flags the unresolved September 2025 cyberattack ($1.2M+
-   owed to merchants as of Feb 2026). LTS's market rule (lts-playbook §PROD-1) lists CinetPay
-   as approved — owner review required before any client CinetPay integration.
+6. CinetPay settlement-risk flag (2025 incident): tracked in the Decision Journal entry of
+   2026-08-05 and docs/research/2026-08-05-reevaluation-research.md — owner review vs
+   lts-playbook §PROD-1 pending.
