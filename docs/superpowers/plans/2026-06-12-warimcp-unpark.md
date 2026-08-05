@@ -68,7 +68,7 @@ repo made public 2026-06-12.)
 
 ---
 
-## Task 2 — I4: MCP registry listing (NOT STARTED — BYOK self-host tool)
+## Task 2 — I4: MCP registry listing (ARTIFACTS BUILT — publish gated — BYOK self-host tool)
 
 **Framing:** publish as a self-host BYOK tool — the npm package ships zero
 credentials; each operator supplies their own PSP keys. The registry entry points
@@ -77,22 +77,34 @@ at the npm package, not an LTS-hosted instance.
 **Hard dependency:** Task 1 merged first (so the published package is safe by
 default) + repo made **public** (currently private — separate explicit decision).
 
-- [ ] a. Verify the *live* publish process — `registry.modelcontextprotocol.io`
-  docs + `mcp-publisher` CLI + current `server.json` schema (don't trust memory).
-- [ ] b. Confirm prerequisites: GitHub repo `Bigabou007-dev/warimcp` is **public**;
-  namespace ownership proof (GitHub OAuth); `LICENSE` file present.
-- [ ] c. Add `bin` entry to `package.json` + a stdio entrypoint, then `npm publish`
-  (distribution decision = npm).
-- [ ] d. Serve `GET /.well-known/mcp/server.json` (no-auth, next to `/health`).
-- [ ] e. Author `server.json` (name `io.github.Bigabou007-dev/warimcp`, `packages`
-  pointing at the npm package). Validate fields against (a).
-- [ ] f. Register: official MCP Registry (`mcp-publisher`) + GitHub MCP Registry.
-- [ ] g. Write-up: dev.to post + README install snippet/badge.
-- [ ] h. Honesty pass on `list_providers` so the public listing shows FedaPay as
-  live and others as not-yet-configured — keep Hub2 prominent (future provider).
-- [ ] i. **Operator-responsibility disclaimer** (README/NOTICE): each operator runs
-  this with their own PSP account and is responsible for their own licensing and
-  regulatory compliance. Highest-value "legally safe" addition for BYOK.
+- [x] a. Verified the *live* publish process (June 2026): schema `2025-12-11`;
+  flow = `npm publish` → `mcp-publisher init` → `mcp-publisher login github` →
+  `mcp-publisher publish`. npm-package fields are camelCase (`registryType`,
+  `identifier`, `transport`). Ownership = `mcpName` in `package.json` must equal
+  `server.json` `name`.
+- [x] b. Prerequisites confirmed: repo **public**, MIT (`license` in package.json).
+- [x] c. `bin` entry added (`warimcp` → `dist/index.js`) + `#!/usr/bin/env node`
+  shebang on `src/index.ts` (tsc preserves it). **`npm publish` still PENDING** (gated).
+- [x] d. ~~`/.well-known/mcp/server.json`~~ — **N/A** (corrected): current spec is
+  `server-card.json` (draft SEP) for *remote* HTTP servers; not needed for a stdio
+  npm server.
+- [x] e. `server.json` authored at repo root (`io.github.bigabou007-dev/warimcp`,
+  npm package, stdio transport, honest env vars). ⚠️ confirm exact username casing
+  via `mcp-publisher init` at publish time.
+- [ ] f. **PENDING (gated/outward):** `npm publish` then register via `mcp-publisher`
+  to the official registry. GitHub's curated catalog syncs downstream (no separate
+  self-serve submission).
+- [x] g. dev.to write-up drafted (`docs/blog/2026-06-12-warimcp-devto-draft.md`) +
+  README npx install snippet. (Publishing the post is gated — brand-facing.)
+- [ ] h. Honesty pass on `list_providers` — deferred (Hub2 future provider stays
+  prominent; not blocking the listing).
+- [x] i. **Operator-responsibility disclaimer** added — README "No Custody (Bring
+  Your Own Keys)" section.
+
+**Remaining (all gated/outward — need owner + board review per rule 1.10):**
+`npm publish --access public` → `mcp-publisher login github` → `mcp-publisher
+publish`; publish the dev.to post. Confirm npm name `warimcp` is available (or scope
+it) at publish time.
 
 ---
 

@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 import * as dotenv from "dotenv";
 import * as path from "path";
 import postgres from "postgres";
