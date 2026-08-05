@@ -176,3 +176,7 @@ The HTTP transport is used in Docker (`WARIMCP_TRANSPORT=http`). For MCP stdio a
 ## License
 
 [MIT](LICENSE)
+
+> **License policy (2026-08-05):** WariMCP core is and stays MIT. Commercial
+> offerings (partner integrations, hosted services) are separate layers and do
+> not change the license of this repository.
