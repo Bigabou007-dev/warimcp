@@ -20,6 +20,10 @@ export async function generatePaymentLink(
     notifyUrl: "",
     callbackUrl: "",
     metadata: { ...input.metadata, type: "payment_link" },
+    // I5 wallet discipline: propagate validated funds-source fields downstream
+    fundsSource: input.fundsSource,
+    agentWalletSignature: input.agentWalletSignature,
+    walletProvider: input.walletProvider,
   });
 
   return {

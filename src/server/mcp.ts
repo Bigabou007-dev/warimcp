@@ -10,8 +10,13 @@ import { generatePaymentLink } from "../tools/generate-payment-link.js";
 import { listProviders } from "../tools/list-providers.js";
 import { initiatePayout } from "../tools/initiate-payout.js";
 import { verifyPayout } from "../tools/verify-payout.js";
+import {
+  InitiatePaymentSchema,
+  GeneratePaymentLinkSchema,
+  InitiatePayoutSchema,
+} from "../tools/definitions.js";
 
-export async function startMcpServer(db: PostgresJsDatabase) {
+export function buildMcpServer(db: PostgresJsDatabase) {
   const server = new McpServer({
     name: "warimcp",
     version: "2.0.0",
@@ -44,14 +49,12 @@ export async function startMcpServer(db: PostgresJsDatabase) {
       agentWalletSignature: z.string().optional().describe("Required when fundsSource is usdc: agent-signed attestation of the transfer"),
       walletProvider: z.string().optional().describe("Required when fundsSource is usdc: name of the non-custodial wallet provider (e.g. phantom)"),
     },
-    async ({ provider, amount, currency, idempotencyKey, description, customerName, customerEmail, customerPhone, returnUrl, callbackUrl }) => {
+    async (args) => {
       try {
-        const result = await initiatePayment(db, {
-          provider, amount, currency, idempotencyKey, description,
-          customerName, customerEmail: customerEmail || "", customerPhone,
-          returnUrl: returnUrl || "", notifyUrl: "", callbackUrl: callbackUrl || "",
-          metadata: {},
-        });
+        // I5 wallet discipline: the SDK only accepts a raw field shape here, so the
+        // superRefine cannot run at the transport layer — enforce it in the handler.
+        const input = InitiatePaymentSchema.parse(args);
+        const result = await initiatePayment(db, input);
         return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
       } catch (err) {
         return { content: [{ type: "text" as const, text: `Error: ${err instanceof Error ? err.message : "Unknown"}` }], isError: true };
@@ -124,9 +127,11 @@ export async function startMcpServer(db: PostgresJsDatabase) {
       agentWalletSignature: z.string().optional().describe("Required when fundsSource is usdc: agent-signed attestation of the transfer"),
       walletProvider: z.string().optional().describe("Required when fundsSource is usdc: name of the non-custodial wallet provider (e.g. phantom)"),
     },
-    async ({ provider, amount, currency, description }) => {
+    async (args) => {
       try {
-        const result = await generatePaymentLink(db, { provider, amount, currency, description, metadata: {} });
+        // I5 wallet discipline enforced in-handler (see initiate_payment note)
+        const input = GeneratePaymentLinkSchema.parse(args);
+        const result = await generatePaymentLink(db, input);
         return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
       } catch (err) {
         return { content: [{ type: "text" as const, text: `Error: ${err instanceof Error ? err.message : "Unknown"}` }], isError: true };
@@ -149,12 +154,11 @@ export async function startMcpServer(db: PostgresJsDatabase) {
       agentWalletSignature: z.string().optional().describe("Required when fundsSource is usdc: agent-signed attestation of the transfer"),
       walletProvider: z.string().optional().describe("Required when fundsSource is usdc: name of the non-custodial wallet provider (e.g. phantom)"),
     },
-    async ({ provider, amount, currency, idempotencyKey, recipientPhone, recipientName, method }) => {
+    async (args) => {
       try {
-        const result = await initiatePayout(db, {
-          provider, amount, currency, idempotencyKey,
-          recipientPhone, recipientName, method, metadata: {},
-        });
+        // I5 wallet discipline enforced in-handler (see initiate_payment note)
+        const input = InitiatePayoutSchema.parse(args);
+        const result = await initiatePayout(db, input);
         return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
       } catch (err) {
         return { content: [{ type: "text" as const, text: `Error: ${err instanceof Error ? err.message : "Unknown"}` }], isError: true };
@@ -178,6 +182,11 @@ export async function startMcpServer(db: PostgresJsDatabase) {
     }
   );
 
+  return server;
+}
+
+export async function startMcpServer(db: PostgresJsDatabase) {
+  const server = buildMcpServer(db);
   const transport = new StdioServerTransport();
   await server.connect(transport);
   console.error("WariMCP MCP server started (stdio transport)");

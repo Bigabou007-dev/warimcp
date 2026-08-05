@@ -33,7 +33,7 @@ export const InitiatePaymentSchema = z.object({
   idempotencyKey: z.string().min(6).max(128),
   description: z.string().default("Payment"),
   customerName: z.string().min(1),
-  customerEmail: z.string().email().optional().default(""),
+  customerEmail: z.union([z.string().email(), z.literal("")]).optional().default(""),
   customerPhone: z.string().min(8),
   returnUrl: z.union([z.string().url(), z.literal("")]).optional().default(""),
   notifyUrl: z.union([z.string().url(), z.literal("")]).optional().default(""),
