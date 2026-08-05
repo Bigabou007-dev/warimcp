@@ -18,13 +18,12 @@ Requires Node >= 22 and PostgreSQL 16+.
 
 ## Providers
 
-10 providers are available in the codebase. The recommended production setup is **FedaPay + Hub2**.
+9 providers are available in the codebase. The recommended production setup is **FedaPay + Hub2**.
 
 | Provider | Key | Region | Methods | Currencies | Status |
 |---|---|---|---|---|---|
 | **FedaPay** | `fedapay` | CI, SN, BJ, TG, BF, ML, NE, GW | MTN, Orange, Moov, Wave, Card | XOF, XAF, GNF | **Recommended Primary** — live keys, true aggregator |
 | **Hub2** | `hub2` | CI, SN, ML, BF, TG, BJ, NE, CM | Mobile Money | XOF, XAF | **Recommended Secondary** — pending sandbox access |
-| CinetPay | `cinetpay` | CI, SN, ML, BF, TG, BJ + 6 more | Mobile Money, Card, Wallet | XOF, XAF, CDF, GNF | Requires RCCM |
 | Wave | `wave` | CI, SN, ML, BF, UG, TZ | Wave wallet | XOF | Requires RCCM |
 | Flutterwave | `flutterwave` | CI, SN, NG, GH, KE + 4 more | Mobile Money, Card, Bank | XOF, XAF, NGN, GHS, KES, USD, EUR | Available |
 | KKiaPay | `kkiapay` | CI, SN, BJ, BF, ML, TG, NE, GW | MTN, Orange, Wave, Card | XOF, XAF | Available |
@@ -93,7 +92,7 @@ Register WariMCP with any MCP client (Claude Desktop, Cursor, Windsurf, VS Code)
 ## Security
 
 - **Helmet** with Content-Security-Policy (default-src 'self', no inline scripts)
-- **Timing-safe HMAC verification** for CinetPay and Wave webhooks (`crypto.timingSafeEqual`)
+- **Timing-safe HMAC verification** for Wave and Hub2 webhooks (`crypto.timingSafeEqual`)
 - **HMAC-SHA256 signed webhook relay** — outbound relays include `X-WariMCP-Signature` header
 - **API key auth** with SHA-256 hashed storage, per-key permissions, and per-key rate limits
 - **Token bucket rate limiting** — 60 req/min default per API key
@@ -130,8 +129,6 @@ FEDAPAY_PUBLIC_KEY=
 HUB2_API_KEY=
 
 # Other providers (configure as needed)
-CINETPAY_API_KEY=
-CINETPAY_SITE_ID=
 WAVE_API_KEY=
 WAVE_WEBHOOK_SECRET=
 FLUTTERWAVE_SECRET_KEY=
@@ -169,7 +166,7 @@ The HTTP transport is used in Docker (`WARIMCP_TRANSPORT=http`). For MCP stdio a
 
 **Phase 1 (current):** FedaPay as primary aggregator + Hub2 as secondary. All 10 provider adapters implemented. No-custody, bring-your-own-keys posture.
 
-**Phase 2:** CinetPay + Wave activation once RCCM is filed. Full webhook verification for all active providers. Automatic provider fallback (FedaPay -> Hub2 -> CinetPay).
+**Phase 2:** Wave activation once RCCM is filed. Full webhook verification for all active providers. Automatic provider fallback (FedaPay -> Hub2).
 
 **Phase 3:** PAPSS pan-African corridor (CI to KE/NG/GH). Multi-currency settlement. Bulk payouts.
 

@@ -1,7 +1,6 @@
 import { getConfig } from "../config.js";
 import type { BaseProvider } from "./base.js";
 import { MockProvider } from "./mock.js";
-import { CinetPayProvider } from "./cinetpay.js";
 import { WaveProvider } from "./wave.js";
 import { Hub2Provider } from "./hub2.js";
 import { PapssProvider } from "./papss.js";
@@ -13,7 +12,6 @@ import { FedaPayProvider } from "./fedapay.js";
 
 const providers: Record<string, BaseProvider> = {
   mock: new MockProvider(),
-  cinetpay: new CinetPayProvider(),
   wave: new WaveProvider(),
   hub2: new Hub2Provider(),
   papss: new PapssProvider(),

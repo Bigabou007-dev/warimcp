@@ -23,7 +23,7 @@ export async function refundPayment(
   }
 
   // For now, mark as refunded in our DB.
-  // CinetPay refunds are manual (dashboard). Wave refunds need separate API call.
+  // Wave refunds need a separate API call; others vary by provider.
   await db
     .update(transactions)
     .set({
@@ -44,9 +44,6 @@ export async function refundPayment(
     status: "refunded",
     amount: tx.amount,
     currency: tx.currency,
-    note:
-      tx.provider === "cinetpay"
-        ? "CinetPay refunds must be processed manually via the CinetPay dashboard"
-        : "Refund recorded",
+    note: "Refund recorded",
   };
 }

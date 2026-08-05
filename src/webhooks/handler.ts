@@ -1,7 +1,6 @@
 import { eq, and } from "drizzle-orm";
 import type { PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import { transactions, webhookEvents, auditLog } from "../db/schema.js";
-import { verifyCinetPayWebhook, parseCinetPayEvent } from "./verify-cinetpay.js";
 import { verifyWaveWebhook, parseWaveEvent } from "./verify-wave.js";
 import { verifyHub2Webhook, parseHub2Event } from "./verify-hub2.js";
 import { relayWebhook } from "./relay.js";
@@ -23,10 +22,7 @@ export async function handleProviderWebhook(
   let signatureValid = false;
   let parsed: { providerReference: string; eventType: string; status: string };
 
-  if (provider === "cinetpay") {
-    signatureValid = verifyCinetPayWebhook(body, rawBody, signatureHeader);
-    parsed = parseCinetPayEvent(body);
-  } else if (provider === "wave") {
+  if (provider === "wave") {
     signatureValid = verifyWaveWebhook(rawBody, signatureHeader);
     parsed = parseWaveEvent(body);
   } else if (provider === "hub2") {

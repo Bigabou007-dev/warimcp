@@ -7,9 +7,6 @@ const envSchema = z.object({
 
   DATABASE_URL: z.string().min(1),
 
-  CINETPAY_API_KEY: z.string().default(""),
-  CINETPAY_SITE_ID: z.string().default(""),
-
   WAVE_API_KEY: z.string().default(""),
   WAVE_WEBHOOK_SECRET: z.string().default(""),
 

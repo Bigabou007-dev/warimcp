@@ -2,7 +2,6 @@ export const SUPPORTED_CURRENCIES = ["XOF", "XAF", "CDF", "GNF"] as const;
 export type SupportedCurrency = (typeof SUPPORTED_CURRENCIES)[number];
 
 const PROVIDER_CURRENCY_MAP: Record<string, readonly string[]> = {
-  cinetpay: ["XOF", "XAF", "CDF", "GNF"],
   wave: ["XOF"],
   mock: ["XOF", "XAF", "CDF", "GNF", "USD", "EUR"],
   hub2: ["XOF", "XAF"],

@@ -37,7 +37,7 @@ export function buildMcpServer(db: PostgresJsDatabase) {
     "initiate_payment",
     "Initiate a payment through any configured WariMCP provider. Returns a checkout URL for the customer.",
     {
-      provider: z.string().default("cinetpay").describe("Payment provider: cinetpay, wave, mock"),
+      provider: z.string().default("fedapay").describe("Payment provider: fedapay, wave, hub2, mock"),
       amount: z.number().int().min(100).max(5_000_000).describe("Amount in whole currency units (e.g. 5000 for 5000 XOF)"),
       currency: z.string().default("XOF").describe("ISO currency code: XOF, XAF, CDF, GNF"),
       idempotencyKey: z.string().min(6).max(128).describe("Unique key to prevent duplicate payments"),
@@ -102,7 +102,7 @@ export function buildMcpServer(db: PostgresJsDatabase) {
     "list_transactions",
     "List recent payment transactions with optional filters",
     {
-      provider: z.string().optional().describe("Filter by provider: cinetpay, wave, mock"),
+      provider: z.string().optional().describe("Filter by provider: fedapay, wave, hub2, mock"),
       status: z.string().optional().describe("Filter by status: pending, completed, failed, refunded"),
       limit: z.number().int().min(1).max(100).default(20).describe("Max results"),
       offset: z.number().int().min(0).default(0).describe("Pagination offset"),
@@ -121,7 +121,7 @@ export function buildMcpServer(db: PostgresJsDatabase) {
     "generate_payment_link",
     "Generate a shareable payment link for a customer",
     {
-      provider: z.string().default("cinetpay").describe("Payment provider"),
+      provider: z.string().default("fedapay").describe("Payment provider"),
       amount: z.number().int().min(100).max(5_000_000).describe("Amount in whole currency units"),
       currency: z.string().default("XOF").describe("ISO currency code"),
       description: z.string().default("Payment").describe("Payment description"),
@@ -196,7 +196,7 @@ export function buildMcpServer(db: PostgresJsDatabase) {
         nonce: z.string().min(1).describe("Unique nonce — used as idempotency key; never reuse"),
       }).describe("The payment mandate the agent signed"),
       signature: z.string().min(1).describe("Base64-encoded Ed25519 signature of the canonical mandate bytes"),
-      provider: z.string().min(1).describe("Payment provider: mock, cinetpay, wave, fedapay"),
+      provider: z.string().min(1).describe("Payment provider: mock, wave, hub2, fedapay"),
       customerPhone: z.string().min(8).describe("Customer phone in international format"),
       customerEmail: z.string().optional().describe("Customer email (optional)"),
       returnUrl: z.string().describe("Redirect URL after payment"),

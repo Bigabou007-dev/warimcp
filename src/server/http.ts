@@ -186,10 +186,7 @@ export function createHttpServer(db: PostgresJsDatabase, port: number) {
       const rawBody = Buffer.isBuffer(req.body) ? req.body.toString("utf-8") : JSON.stringify(req.body);
       const body = Buffer.isBuffer(req.body) ? JSON.parse(rawBody) : req.body;
       const provider = req.params.provider;
-      const signature =
-        provider === "cinetpay"
-          ? (req.headers["x-cp-signature"] as string | undefined)
-          : (req.headers["wave-signature"] as string | undefined);
+      const signature = req.headers["wave-signature"] as string | undefined;
 
       const result = await handleProviderWebhook(
         db,

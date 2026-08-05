@@ -99,7 +99,7 @@ export const PaymentMandateSchema = z.object({
 export const AuthorizeAndPaySchema = z.object({
   mandate: PaymentMandateSchema,
   signature: z.string().min(1).describe("Base64-encoded Ed25519 signature of the canonical mandate bytes"),
-  provider: z.string().min(1).describe("Payment provider: mock, cinetpay, wave, fedapay"),
+  provider: z.string().min(1).describe("Payment provider: mock, wave, hub2, fedapay"),
   customerPhone: z.string().min(8).describe("Customer phone in international format"),
   customerEmail: z.string().email().optional().describe("Customer email (optional)"),
   returnUrl: z.union([z.string().url(), z.literal("")]).describe("Redirect URL after payment"),

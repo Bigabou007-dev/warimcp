@@ -8,8 +8,8 @@ process.env.DATABASE_URL = "postgresql://test:test@localhost:5432/test";
 import { getProvider, getAllProviders, getProviderNames } from "../../../src/providers/registry.js";
 
 describe("Provider Registry", () => {
-  it("returns mock provider in mock mode", () => {
-    const provider = getProvider("cinetpay");
+  it("returns mock provider in mock mode (via fedapay)", () => {
+    const provider = getProvider("fedapay");
     expect(provider.name).toBe("mock");
   });
 
@@ -32,7 +32,8 @@ describe("Provider Registry", () => {
   it("lists provider names", () => {
     const names = getProviderNames();
     expect(names).toContain("mock");
-    expect(names).toContain("cinetpay");
+    expect(names).toContain("fedapay");
     expect(names).toContain("wave");
+    expect(names).toContain("hub2");
   });
 });
