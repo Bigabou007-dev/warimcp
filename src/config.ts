@@ -14,6 +14,9 @@ const envSchema = z.object({
   WAVE_WEBHOOK_SECRET: z.string().default(""),
 
   HUB2_API_KEY: z.string().default(""),
+  HUB2_MERCHANT_ID: z.string().default(""),
+  HUB2_BASE_URL: z.string().default("https://api.hub2.io"),
+  HUB2_WEBHOOK_SECRET: z.string().default(""),
   PAPSS_API_KEY: z.string().default(""),
 
   FLUTTERWAVE_SECRET_KEY: z.string().default(""),
