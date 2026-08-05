@@ -3,7 +3,9 @@ import type { PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import { transactions, webhookEvents, auditLog } from "../db/schema.js";
 import { verifyCinetPayWebhook, parseCinetPayEvent } from "./verify-cinetpay.js";
 import { verifyWaveWebhook, parseWaveEvent } from "./verify-wave.js";
+import { verifyHub2Webhook, parseHub2Event } from "./verify-hub2.js";
 import { relayWebhook } from "./relay.js";
+import { getConfig } from "../config.js";
 import type { RelayPayload } from "./relay.js";
 
 interface WebhookResult {
@@ -27,6 +29,16 @@ export async function handleProviderWebhook(
   } else if (provider === "wave") {
     signatureValid = verifyWaveWebhook(rawBody, signatureHeader);
     parsed = parseWaveEvent(body);
+  } else if (provider === "hub2") {
+    const config = getConfig();
+    const expectedMode = config.WARIMCP_MODE === "live" ? "live" : "sandbox";
+    const result = verifyHub2Webhook(rawBody, signatureHeader, {
+      secret: config.HUB2_WEBHOOK_SECRET,
+      expectedMode,
+      nowMs: Date.now(),
+    });
+    signatureValid = result.ok;
+    parsed = parseHub2Event(body);
   } else {
     return { accepted: false, message: `Unknown provider: ${provider}` };
   }
