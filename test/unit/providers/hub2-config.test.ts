@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll } from "vitest";
+import { describe, it, expect } from "vitest";
 
 // Set env before importing config
 process.env.WARIMCP_MODE = "mock";
