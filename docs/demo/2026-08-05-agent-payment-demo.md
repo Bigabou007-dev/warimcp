@@ -25,20 +25,29 @@ An end-to-end merchant payment flow driven entirely by an AI agent:
 
 ## Swap point for sandbox / production
 
-**Single change: the `provider` value in `scripts/demo-agent-payment.ts`.**
+**Three changes are required to exercise a real provider — not one.**
 
 ```typescript
 // In scripts/demo-agent-payment.ts:
-const provider = "mock";  // <-- SWAP: "hub2" | "fedapay" once sandbox creds provisioned
+const provider = "mock";  // <-- (1) change to "hub2" or "fedapay"
 ```
 
-No source edit is needed anywhere else — the provider value threads from the demo's
-call argument through `handleAuthorizeAndPay` to `initiatePayment`/`getProvider`
-unchanged, and `metadata.provider` in `src/tools/authorize-and-pay.ts` simply records
-whatever value was passed.
+The script also hard-codes `process.env.WARIMCP_MODE = "mock"` and loads no `.env`,
+so changing `provider` alone is not enough — `registry.ts` will still route to the
+mock adapter regardless of the provider string. The full swap requires:
 
-Once Hub2 sandbox credentials land in `.env` (`HUB2_API_KEY`, `HUB2_MERCHANT_ID`), change
-`provider` to `"hub2"` and re-run `npx tsx scripts/demo-agent-payment.ts`.
+1. **Change `provider`** from `"mock"` to `"hub2"` (or `"fedapay"`).
+2. **Set `WARIMCP_MODE=sandbox`** in the environment (the script currently forces
+   `WARIMCP_MODE="mock"` at the top — remove or override that line).
+3. **Load real sandbox credentials** into the environment (`HUB2_API_KEY`,
+   `HUB2_MERCHANT_ID` for Hub2; or the FedaPay equivalent). The demo deliberately
+   loads none, so without this step all provider calls will fail at the credential guard.
+
+The `MOCK-` prefix on `providerReference` in the run transcript below is the
+tell that the current recording is mock-only — no real network call was made.
+
+Once Hub2 sandbox credentials are available, follow all three steps above and
+re-run `npx tsx scripts/demo-agent-payment.ts` to produce a real sandbox transcript.
 
 ## Run evidence
 

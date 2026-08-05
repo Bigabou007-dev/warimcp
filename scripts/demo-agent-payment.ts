@@ -179,15 +179,20 @@ async function run() {
 
   const { db, getRows } = makeStubDb();
 
-  // SWAP POINT: change "mock" to "hub2" (or "fedapay") when sandbox creds land.
-  // Single change — the provider value threads through handleAuthorizeAndPay to
-  // initiatePayment/getProvider unchanged; no source edit is needed.
+  // SWAP POINT — three changes required to exercise a real provider (not one):
+  //   1. Change "mock" below to "hub2" (or "fedapay").
+  //   2. Remove / override `process.env.WARIMCP_MODE = "mock"` at the top of this
+  //      file and set WARIMCP_MODE=sandbox in the environment — without this,
+  //      registry.ts routes to the mock adapter regardless of the provider string.
+  //   3. Load real sandbox credentials into the environment before running
+  //      (HUB2_API_KEY + HUB2_MERCHANT_ID for Hub2, or FedaPay equivalent).
+  //      This script deliberately loads no .env; all three steps are needed.
   const provider = "mock";
 
   const result = await handleAuthorizeAndPay(db, {
     mandate,
     signature,
-    provider, // <-- SWAP POINT: "hub2" | "fedapay" once sandbox creds provisioned
+    provider, // <-- SWAP POINT: see comment above — "hub2" | "fedapay" + WARIMCP_MODE=sandbox + creds
     customerPhone: "+22507000000042",
     customerEmail: undefined,
     returnUrl: "https://boutique.example.ci/merci",
@@ -251,11 +256,17 @@ async function run() {
   separator("Fin de la démonstration");
   print("Ce qui est simulé  : transport (WhatsApp), DB (stub in-memory), provider (mock).");
   print("Ce qui est réel    : crypto Ed25519, vérification de mandat, flux authorize_and_pay.");
-  print("Changements pour production :");
-  print("  1. Remplacer provider 'mock' → 'hub2' (ou 'fedapay') quand creds sandbox disponibles.");
-  print("  2. Remplacer le stub DB par la vraie connection Postgres (DATABASE_URL).");
-  print("  3. Activer le transport MCP réel (stdio/http) à la place du import direct.");
-  print("  4. BCEAO 001-01-2024 : flag.authorized doit rester OFF en production réelle");
+  print("Changements pour sandbox (3 étapes — pas une seule) :");
+  print("  1. Changer provider 'mock' → 'hub2' (ou 'fedapay') dans ce fichier.");
+  print("  2. Retirer/remplacer process.env.WARIMCP_MODE='mock' → WARIMCP_MODE=sandbox");
+  print("     (sans ça, registry.ts route vers mock indépendamment du provider choisi).");
+  print("  3. Charger les vrais creds sandbox dans l'env (HUB2_API_KEY, HUB2_MERCHANT_ID).");
+  print("     Ce script ne charge aucun .env — les 3 étapes sont nécessaires.");
+  print("");
+  print("Changements supplémentaires pour production :");
+  print("  4. Remplacer le stub DB par la vraie connection Postgres (DATABASE_URL).");
+  print("  5. Activer le transport MCP réel (stdio/http) à la place du import direct.");
+  print("  6. BCEAO 001-01-2024 : flag.authorized doit rester OFF en production réelle");
   print("     jusqu'à la levée des obligations réglementaires. Voir ROADMAP.md §Phase 2.");
   print("");
 }

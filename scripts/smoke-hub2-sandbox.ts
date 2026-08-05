@@ -14,7 +14,8 @@
  */
 
 import "dotenv/config";
-import { hub2Provider } from "../src/providers/hub2.js";
+import { randomUUID } from "node:crypto";
+import { Hub2Provider } from "../src/providers/hub2.js";
 import { HttpError } from "../src/utils/http-error.js";
 
 const apiKey = process.env.HUB2_API_KEY ?? "";
@@ -48,6 +49,8 @@ const AMOUNT = 100;
 const CURRENCY = "XOF";
 const PROVIDER = "mtn";
 
+const hub2Provider = new Hub2Provider();
+
 async function main() {
   console.log("[smoke-hub2] Starting sandbox smoke — initiating payment...");
 
@@ -56,10 +59,13 @@ async function main() {
     const initResult = await hub2Provider.initiatePayment({
       amount: AMOUNT,
       currency: CURRENCY,
+      idempotencyKey: randomUUID(),
+      description: "hub2 sandbox smoke",
+      customerName: "Smoke Test",
+      customerEmail: "smoke@example.com",
       customerPhone: MAGIC_MSISDN,
-      description: "Hub2 sandbox smoke test",
-      reference: `smoke-${Date.now()}`,
-      callbackUrl: "https://example.com/webhook",
+      returnUrl: "https://example.com/return",
+      notifyUrl: "https://example.com/notify",
       metadata: { provider: PROVIDER },
     });
     console.log("[smoke-hub2] initiatePayment response:", JSON.stringify(initResult, null, 2));
