@@ -39,6 +39,11 @@ const envSchema = z.object({
 
   WARIMCP_WEBHOOK_BASE_URL: z.string().default(""),
   WARIMCP_RELAY_SECRET: z.string().default(""),
+
+  // Allowlist of trusted agent public keys (Ed25519 SPKI PEM) for authorize_and_pay.
+  // One or more PEM blocks, comma- or newline-separated (literal \n escapes accepted).
+  // Empty = authorize_and_pay fails closed (no_trusted_keys_configured).
+  WARIMCP_TRUSTED_AGENT_KEYS: z.string().default(""),
   // Manual-payment-collection config removed 2026-06-12 (custody feature deleted).
 });
 

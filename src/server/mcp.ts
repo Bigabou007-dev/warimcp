@@ -186,17 +186,16 @@ export function buildMcpServer(db: PostgresJsDatabase) {
 
   server.tool(
     "authorize_and_pay",
-    "Verify an agent-signed payment mandate then immediately initiate payment through the specified provider. Returns { authorized: true, payment } on success, or { authorized: false, reason } if the mandate is invalid — without touching any provider.",
+    "Verify an agent-signed payment mandate against the server-side trusted-key allowlist (WARIMCP_TRUSTED_AGENT_KEYS), then immediately initiate payment through the specified provider. Returns { authorized: true, payment } on success, or { authorized: false, reason } if the mandate is invalid — without touching any provider.",
     {
       mandate: z.object({
-        amount: z.number().int().min(1).describe("Amount in whole currency units"),
+        amount: z.number().int().min(100).max(5_000_000).describe("Amount in whole currency units (bounds mirror initiate_payment)"),
         currency: z.string().describe("ISO currency code (e.g. XOF)"),
         merchantRef: z.string().min(1).describe("Merchant-side reference for this mandate"),
         expiresAtMs: z.number().int().describe("Unix timestamp in ms after which the mandate is invalid"),
         nonce: z.string().min(1).describe("Unique nonce — used as idempotency key; never reuse"),
       }).describe("The payment mandate the agent signed"),
       signature: z.string().min(1).describe("Base64-encoded Ed25519 signature of the canonical mandate bytes"),
-      agentPublicKeyPem: z.string().min(1).describe("Ed25519 public key in SPKI PEM format"),
       provider: z.string().min(1).describe("Payment provider: mock, cinetpay, wave, fedapay"),
       customerPhone: z.string().min(8).describe("Customer phone in international format"),
       customerEmail: z.string().optional().describe("Customer email (optional)"),

@@ -85,17 +85,20 @@ export const VerifyPayoutSchema = z.object({
 });
 
 export const PaymentMandateSchema = z.object({
-  amount: z.number().int().min(1),
+  // Bounds mirror InitiatePaymentSchema.amount exactly — a mandate must not be able
+  // to authorize an amount the sibling payment tool would reject.
+  amount: z.number().int().min(100).max(5_000_000),
   currency: z.string(),
   merchantRef: z.string().min(1),
   expiresAtMs: z.number().int(),
   nonce: z.string().min(1),
 });
 
+// NOTE: no agentPublicKeyPem here — the verification key comes from the server-side
+// WARIMCP_TRUSTED_AGENT_KEYS allowlist, never from caller input (trust-anyone fix).
 export const AuthorizeAndPaySchema = z.object({
   mandate: PaymentMandateSchema,
   signature: z.string().min(1).describe("Base64-encoded Ed25519 signature of the canonical mandate bytes"),
-  agentPublicKeyPem: z.string().min(1).describe("Ed25519 public key in SPKI PEM format"),
   provider: z.string().min(1).describe("Payment provider: mock, cinetpay, wave, fedapay"),
   customerPhone: z.string().min(8).describe("Customer phone in international format"),
   customerEmail: z.string().email().optional().describe("Customer email (optional)"),
