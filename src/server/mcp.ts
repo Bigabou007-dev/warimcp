@@ -10,10 +10,12 @@ import { generatePaymentLink } from "../tools/generate-payment-link.js";
 import { listProviders } from "../tools/list-providers.js";
 import { initiatePayout } from "../tools/initiate-payout.js";
 import { verifyPayout } from "../tools/verify-payout.js";
+import { handleAuthorizeAndPay } from "../tools/authorize-and-pay.js";
 import {
   InitiatePaymentSchema,
   GeneratePaymentLinkSchema,
   InitiatePayoutSchema,
+  AuthorizeAndPaySchema,
 } from "../tools/definitions.js";
 
 export function buildMcpServer(db: PostgresJsDatabase) {
@@ -175,6 +177,37 @@ export function buildMcpServer(db: PostgresJsDatabase) {
     async ({ payoutId }) => {
       try {
         const result = await verifyPayout(db, payoutId);
+        return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
+      } catch (err) {
+        return { content: [{ type: "text" as const, text: `Error: ${err instanceof Error ? err.message : "Unknown"}` }], isError: true };
+      }
+    }
+  );
+
+  server.tool(
+    "authorize_and_pay",
+    "Verify an agent-signed payment mandate then immediately initiate payment through the specified provider. Returns { authorized: true, payment } on success, or { authorized: false, reason } if the mandate is invalid — without touching any provider.",
+    {
+      mandate: z.object({
+        amount: z.number().int().min(1).describe("Amount in whole currency units"),
+        currency: z.string().describe("ISO currency code (e.g. XOF)"),
+        merchantRef: z.string().min(1).describe("Merchant-side reference for this mandate"),
+        expiresAtMs: z.number().int().describe("Unix timestamp in ms after which the mandate is invalid"),
+        nonce: z.string().min(1).describe("Unique nonce — used as idempotency key; never reuse"),
+      }).describe("The payment mandate the agent signed"),
+      signature: z.string().min(1).describe("Base64-encoded Ed25519 signature of the canonical mandate bytes"),
+      agentPublicKeyPem: z.string().min(1).describe("Ed25519 public key in SPKI PEM format"),
+      provider: z.string().min(1).describe("Payment provider: mock, cinetpay, wave, fedapay"),
+      customerPhone: z.string().min(8).describe("Customer phone in international format"),
+      customerEmail: z.string().optional().describe("Customer email (optional)"),
+      returnUrl: z.string().describe("Redirect URL after payment"),
+      notifyUrl: z.string().describe("Webhook URL for payment notifications"),
+    },
+    async (args) => {
+      try {
+        // Parse + validate with full schema before any business logic.
+        const input = AuthorizeAndPaySchema.parse(args);
+        const result = await handleAuthorizeAndPay(db, input);
         return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
       } catch (err) {
         return { content: [{ type: "text" as const, text: `Error: ${err instanceof Error ? err.message : "Unknown"}` }], isError: true };

@@ -84,6 +84,25 @@ export const VerifyPayoutSchema = z.object({
   payoutId: z.string().uuid(),
 });
 
+export const PaymentMandateSchema = z.object({
+  amount: z.number().int().min(1),
+  currency: z.string(),
+  merchantRef: z.string().min(1),
+  expiresAtMs: z.number().int(),
+  nonce: z.string().min(1),
+});
+
+export const AuthorizeAndPaySchema = z.object({
+  mandate: PaymentMandateSchema,
+  signature: z.string().min(1).describe("Base64-encoded Ed25519 signature of the canonical mandate bytes"),
+  agentPublicKeyPem: z.string().min(1).describe("Ed25519 public key in SPKI PEM format"),
+  provider: z.string().min(1).describe("Payment provider: mock, cinetpay, wave, fedapay"),
+  customerPhone: z.string().min(8).describe("Customer phone in international format"),
+  customerEmail: z.string().email().optional().describe("Customer email (optional)"),
+  returnUrl: z.union([z.string().url(), z.literal("")]).describe("Redirect URL after payment"),
+  notifyUrl: z.union([z.string().url(), z.literal("")]).describe("Webhook URL for payment notifications"),
+});
+
 export type InitiatePaymentInput = z.infer<typeof InitiatePaymentSchema>;
 export type VerifyPaymentInput = z.infer<typeof VerifyPaymentSchema>;
 export type RefundPaymentInput = z.infer<typeof RefundPaymentSchema>;
@@ -91,3 +110,4 @@ export type ListTransactionsInput = z.infer<typeof ListTransactionsSchema>;
 export type GeneratePaymentLinkInput = z.infer<typeof GeneratePaymentLinkSchema>;
 export type InitiatePayoutInput = z.infer<typeof InitiatePayoutSchema>;
 export type VerifyPayoutInput = z.infer<typeof VerifyPayoutSchema>;
+export type AuthorizeAndPayInput = z.infer<typeof AuthorizeAndPaySchema>;
