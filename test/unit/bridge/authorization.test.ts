@@ -25,4 +25,16 @@ describe("verifyMandate", () => {
     const seen = new Set(["n-1"]);
     expect(verifyMandate(mandate, goodSig, pem, { nowMs: now, seenNonces: seen })).toEqual({ ok: false, reason: "replayed" });
   });
+  it("rejects at the exact expiry instant (inclusive boundary: nowMs === expiresAtMs is expired)", () => {
+    const r = verifyMandate(mandate, goodSig, pem, { nowMs: mandate.expiresAtMs, seenNonces: new Set() });
+    expect(r).toEqual({ ok: false, reason: "expired" });
+  });
+  it("returns bad_signature (no throw) on malformed PEM", () => {
+    const r = verifyMandate(mandate, goodSig, "not a pem", { nowMs: now, seenNonces: new Set() });
+    expect(r).toEqual({ ok: false, reason: "bad_signature" });
+  });
+  it("returns bad_signature (no throw) on non-base64 signature with valid PEM", () => {
+    const r = verifyMandate(mandate, "!!!not-base64!!!", pem, { nowMs: now, seenNonces: new Set() });
+    expect(r).toEqual({ ok: false, reason: "bad_signature" });
+  });
 });

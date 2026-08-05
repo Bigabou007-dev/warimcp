@@ -23,6 +23,12 @@ export interface PaymentMandate {
 /**
  * Canonical bytes for signing/verifying.
  * Array form guarantees stable key order without sorting.
+ *
+ * JSON.stringify of this array is injective for the
+ * (number, string, string, number, string) tuple: strings are JSON-quoted
+ * and escaped, so no two distinct mandates serialize to the same bytes.
+ * Adding, removing, or reordering fields is a BREAKING CHANGE to the
+ * signing contract — existing signatures would no longer verify.
  */
 export function canonicalMandateBytes(m: PaymentMandate): Buffer {
   const arr = [m.amount, m.currency, m.merchantRef, m.expiresAtMs, m.nonce];
