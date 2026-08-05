@@ -2,7 +2,7 @@ import express from "express";
 import helmet from "helmet";
 import type { PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import { createAuthMiddleware } from "./middleware/auth.js";
-import { rateLimitMiddleware, smsRateLimitMiddleware } from "./middleware/rate-limit.js";
+import { rateLimitMiddleware } from "./middleware/rate-limit.js";
 import { validateBody } from "./middleware/validate.js";
 import {
   InitiatePaymentSchema,
@@ -23,9 +23,6 @@ import { initiatePayout } from "../tools/initiate-payout.js";
 import { verifyPayout } from "../tools/verify-payout.js";
 import { handleProviderWebhook } from "../webhooks/handler.js";
 import { HttpError } from "../utils/http-error.js";
-import { smsWebhookRouter } from "../manual-payments/sms-webhook.js";
-import { paymentPageRouter } from "../manual-payments/payment-page.js";
-import { expireStaleReferences } from "../manual-payments/reference-generator.js";
 
 /** Sanitize errors for HTTP responses — never leak provider internals. */
 function safeError(err: unknown): { status: number; body: { error: string } } {
@@ -177,17 +174,11 @@ export function createHttpServer(db: PostgresJsDatabase, port: number) {
     }
   });
 
-  // Manual payment routes — no auth (public-facing)
-  app.use("/api/sms-webhook", smsRateLimitMiddleware, smsWebhookRouter);
-  app.use("/pay", paymentPageRouter);
-
-  // Clean up stale payment references every 5 minutes
-  setInterval(() => {
-    const removed = expireStaleReferences();
-    if (removed > 0) {
-      console.error(`[manual-payments] Expired ${removed} stale reference(s)`);
-    }
-  }, 5 * 60 * 1000);
+  // NOTE: The manual-payment-collection feature (personal Wave/OM account +
+  // SMS reconciliation) was removed 2026-06-12 — it was unlicensed payment
+  // collection under BCEAO Instruction n°001-01-2024 and incompatible with the
+  // BYOK no-custody posture. WariMCP only instructs licensed PSPs; it never
+  // collects funds into an LTS-controlled account. Do not reintroduce it.
 
   // Webhook endpoints — NO auth, signature verification handled internally
   app.post("/api/v1/webhooks/:provider", async (req, res) => {

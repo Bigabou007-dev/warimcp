@@ -51,8 +51,6 @@ All payment/payout endpoints require an `X-Api-Key` header. Generate keys with `
 | `POST` | `/api/v1/payouts/initiate` | Yes | Disburse to mobile money or bank |
 | `GET` | `/api/v1/payouts/:id` | Yes | Verify payout status |
 | `POST` | `/api/v1/webhooks/:provider` | No | Inbound webhook receiver (signature-verified) |
-| `GET` | `/pay/:ref` | No | Manual payment page (public) |
-| `POST` | `/api/sms-webhook` | No | SMS notification receiver for manual payments |
 
 ## MCP Tools
 
@@ -93,19 +91,16 @@ When registered as an MCP server, WariMCP exposes these tools to AI agents:
 - **Timing-safe HMAC verification** for CinetPay and Wave webhooks (`crypto.timingSafeEqual`)
 - **HMAC-SHA256 signed webhook relay** — outbound relays include `X-WariMCP-Signature` header
 - **API key auth** with SHA-256 hashed storage, per-key permissions, and per-key rate limits
-- **Token bucket rate limiting** — 60 req/min default per API key, 10 req/min for SMS webhooks
+- **Token bucket rate limiting** — 60 req/min default per API key
 - **Error sanitization** — provider errors are caught and rewritten; internal details never leak to clients
 - **Non-root Docker user** — container runs as dedicated `warimcp` user (UID 1001)
 - **Zod validation** on all inputs with strict schemas (amount bounds, phone format, UUID checks)
 
-## Manual Payment Collection
+## No Custody (Bring Your Own Keys)
 
-A pre-RCCM workaround for accepting payments without formal API access. WariMCP generates a unique payment amount by adding a 1-99 XOF suffix to the base price (e.g., 5000 XOF becomes 5037 XOF). The customer sends this exact amount to a personal Wave or Orange Money number. When the SMS notification arrives at `/api/sms-webhook`, WariMCP matches the amount to the pending reference and marks it paid.
+WariMCP holds no funds and ships no credentials. It only **instructs** licensed payment service providers; money settles directly into the account that the keys belong to — never an intermediary account. Each operator runs their own instance with their own PSP credentials and is **the merchant of record, responsible for their own licensing and regulatory compliance**.
 
-- References expire after 30 minutes
-- Up to 99 concurrent references per base amount
-- Stale references are garbage-collected every 5 minutes
-- Public payment page at `/pay/:ref` shows the customer what to send and where
+> An earlier "manual payment collection" feature (which routed funds into a personal mobile-money account with SMS reconciliation) was removed in 2026-06 as incompatible with this no-custody posture. Do not reintroduce custody of third-party funds.
 
 ## Configuration
 
@@ -150,12 +145,6 @@ PAPSS_API_KEY=
 # Webhooks
 WARIMCP_WEBHOOK_BASE_URL=
 WARIMCP_RELAY_SECRET=
-
-# Manual payments (pre-RCCM)
-MANUAL_PAYMENT_WAVE_NUMBER=
-MANUAL_PAYMENT_OM_NUMBER=
-MANUAL_PAYMENT_WHATSAPP_NOTIFY=
-MANUAL_PAYMENT_SMS_SECRET=
 ```
 
 ## Docker Deployment
@@ -173,7 +162,7 @@ The HTTP transport is used in Docker (`WARIMCP_TRANSPORT=http`). For MCP stdio a
 
 ## Roadmap
 
-**Phase 1 (current):** FedaPay as primary aggregator + Hub2 as secondary. Manual payment collection for pre-RCCM operation. All 10 provider adapters implemented.
+**Phase 1 (current):** FedaPay as primary aggregator + Hub2 as secondary. All 10 provider adapters implemented. No-custody, bring-your-own-keys posture.
 
 **Phase 2:** CinetPay + Wave activation once RCCM is filed. Full webhook verification for all active providers. Automatic provider fallback (FedaPay -> Hub2 -> CinetPay).
 
