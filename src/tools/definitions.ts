@@ -1,5 +1,31 @@
 import { z } from "zod";
 
+const walletDisciplineFields = {
+  fundsSource: z.enum(["fiat", "usdc"]).default("fiat"),
+  agentWalletSignature: z.string().optional(),
+  walletProvider: z.string().optional(),
+};
+
+const walletDisciplineRefine = (
+  val: { fundsSource: string; agentWalletSignature?: string; walletProvider?: string },
+  ctx: z.RefinementCtx
+) => {
+  if (val.fundsSource === "usdc") {
+    if (!val.agentWalletSignature) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "agentWalletSignature is required when fundsSource is usdc",
+      });
+    }
+    if (!val.walletProvider) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "walletProvider is required when fundsSource is usdc",
+      });
+    }
+  }
+};
+
 export const InitiatePaymentSchema = z.object({
   provider: z.string().default("fedapay"),
   amount: z.number().int().min(100).max(5_000_000),
@@ -9,11 +35,12 @@ export const InitiatePaymentSchema = z.object({
   customerName: z.string().min(1),
   customerEmail: z.string().email().optional().default(""),
   customerPhone: z.string().min(8),
-  returnUrl: z.string().url().optional().default(""),
-  notifyUrl: z.string().url().optional().default(""),
-  callbackUrl: z.string().url().optional().default(""),
+  returnUrl: z.union([z.string().url(), z.literal("")]).optional().default(""),
+  notifyUrl: z.union([z.string().url(), z.literal("")]).optional().default(""),
+  callbackUrl: z.union([z.string().url(), z.literal("")]).optional().default(""),
   metadata: z.record(z.unknown()).optional().default({}),
-});
+  ...walletDisciplineFields,
+}).superRefine(walletDisciplineRefine);
 
 export const VerifyPaymentSchema = z.object({
   transactionId: z.string().uuid(),
@@ -38,7 +65,8 @@ export const GeneratePaymentLinkSchema = z.object({
   currency: z.string().default("XOF"),
   description: z.string().default("Payment"),
   metadata: z.record(z.unknown()).optional().default({}),
-});
+  ...walletDisciplineFields,
+}).superRefine(walletDisciplineRefine);
 
 export const InitiatePayoutSchema = z.object({
   provider: z.string().default("fedapay"),
@@ -49,7 +77,8 @@ export const InitiatePayoutSchema = z.object({
   recipientName: z.string().min(1),
   method: z.enum(["mobile_money", "bank"]).default("mobile_money"),
   metadata: z.record(z.unknown()).optional().default({}),
-});
+  ...walletDisciplineFields,
+}).superRefine(walletDisciplineRefine);
 
 export const VerifyPayoutSchema = z.object({
   payoutId: z.string().uuid(),

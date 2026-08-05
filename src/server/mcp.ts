@@ -40,6 +40,9 @@ export async function startMcpServer(db: PostgresJsDatabase) {
       customerPhone: z.string().min(8).describe("Phone in international format: +2250707070707"),
       returnUrl: z.string().optional().default("").describe("Redirect URL after payment"),
       callbackUrl: z.string().optional().default("").describe("Your webhook URL for payment notifications"),
+      fundsSource: z.enum(["fiat", "usdc"]).default("fiat").describe("Source of funds: fiat (mobile money) or usdc (crypto-settled)"),
+      agentWalletSignature: z.string().optional().describe("Required when fundsSource is usdc: agent-signed attestation of the transfer"),
+      walletProvider: z.string().optional().describe("Required when fundsSource is usdc: name of the non-custodial wallet provider (e.g. phantom)"),
     },
     async ({ provider, amount, currency, idempotencyKey, description, customerName, customerEmail, customerPhone, returnUrl, callbackUrl }) => {
       try {
@@ -117,6 +120,9 @@ export async function startMcpServer(db: PostgresJsDatabase) {
       amount: z.number().int().min(100).max(5_000_000).describe("Amount in whole currency units"),
       currency: z.string().default("XOF").describe("ISO currency code"),
       description: z.string().default("Payment").describe("Payment description"),
+      fundsSource: z.enum(["fiat", "usdc"]).default("fiat").describe("Source of funds: fiat (mobile money) or usdc (crypto-settled)"),
+      agentWalletSignature: z.string().optional().describe("Required when fundsSource is usdc: agent-signed attestation of the transfer"),
+      walletProvider: z.string().optional().describe("Required when fundsSource is usdc: name of the non-custodial wallet provider (e.g. phantom)"),
     },
     async ({ provider, amount, currency, description }) => {
       try {
@@ -139,6 +145,9 @@ export async function startMcpServer(db: PostgresJsDatabase) {
       recipientPhone: z.string().min(8).describe("Recipient phone: +2250707070707"),
       recipientName: z.string().min(1).describe("Recipient name"),
       method: z.enum(["mobile_money", "bank"]).default("mobile_money").describe("Payout method"),
+      fundsSource: z.enum(["fiat", "usdc"]).default("fiat").describe("Source of funds: fiat (mobile money) or usdc (crypto-settled)"),
+      agentWalletSignature: z.string().optional().describe("Required when fundsSource is usdc: agent-signed attestation of the transfer"),
+      walletProvider: z.string().optional().describe("Required when fundsSource is usdc: name of the non-custodial wallet provider (e.g. phantom)"),
     },
     async ({ provider, amount, currency, idempotencyKey, recipientPhone, recipientName, method }) => {
       try {
