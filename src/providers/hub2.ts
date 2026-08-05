@@ -236,6 +236,7 @@ export class Hub2Provider implements BaseProvider {
 
     const data = (await res.json()) as Record<string, unknown>;
 
+    // unknown wire status throws by design — see HUB2_STATUS_MAP trap
     const status = normalizeHub2Status(data.status as string);
     const amount = data.amount as number | undefined;
     const currency = data.currency as string | undefined;

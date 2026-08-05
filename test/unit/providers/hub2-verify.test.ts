@@ -26,4 +26,32 @@ describe("Hub2Provider.verifyPayment", () => {
     expect(r.currency).toBe("XOF");
     expect(r.paymentMethod).toBe("HUB2");
   });
+
+  it("maps payment_required intent to pending", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () =>
+      new Response(JSON.stringify({ id: "pi_2", status: "payment_required", amount: 500, currency: "XOF" }), { status: 200 })));
+    const r = await new Hub2Provider().verifyPayment("pi_2");
+    expect(r.status).toBe("pending");
+  });
+
+  it("maps failed intent to failed", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () =>
+      new Response(JSON.stringify({ id: "pi_3", status: "failed", amount: 500, currency: "XOF" }), { status: 200 })));
+    const r = await new Hub2Provider().verifyPayment("pi_3");
+    expect(r.status).toBe("failed");
+  });
+
+  it("rejects with Hub2 verify HTTP 404 on non-OK response", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () =>
+      new Response(JSON.stringify({ error: "not found" }), { status: 404 })));
+    await expect(new Hub2Provider().verifyPayment("pi_missing"))
+      .rejects.toThrow(/Hub2 verify HTTP 404/);
+  });
+
+  it("throws on unknown wire status (fail loudly by design)", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () =>
+      new Response(JSON.stringify({ id: "pi_x", status: "mystery" }), { status: 200 })));
+    await expect(new Hub2Provider().verifyPayment("pi_x"))
+      .rejects.toThrow(/Unknown Hub2 status/);
+  });
 });
