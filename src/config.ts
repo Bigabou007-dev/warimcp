@@ -56,3 +56,8 @@ export function getConfig(): Config {
   if (!_config) return loadConfig();
   return _config;
 }
+
+/** Reset cached config — for use in tests that mutate process.env between runs. */
+export function resetConfig(): void {
+  _config = null;
+}
