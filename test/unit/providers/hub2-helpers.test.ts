@@ -13,6 +13,9 @@ describe("normalizeHub2Status", () => {
   it("throws on unknown wire status (never silently passes through)", () => {
     expect(() => normalizeHub2Status("mystery")).toThrow(/Unknown Hub2 status/);
   });
+  it("throws on empty string", () => {
+    expect(() => normalizeHub2Status("")).toThrow(/Unknown Hub2 status/);
+  });
 });
 
 describe("normalizeMsisdnForHub2", () => {
@@ -24,5 +27,17 @@ describe("normalizeMsisdnForHub2", () => {
   });
   it("passes 8-digit sandbox magic through untouched", () => {
     expect(normalizeMsisdnForHub2("00000001")).toBe("00000001");
+  });
+  it("strips bare 225 country-code prefix to local", () => {
+    expect(normalizeMsisdnForHub2("2250777210927")).toBe("0777210927");
+  });
+  it("strips whitespace before matching E.164", () => {
+    expect(normalizeMsisdnForHub2("+225 0777 210927")).toBe("0777210927");
+  });
+  it("lenient fallback: non-CIV E.164 only loses its leading + (never throws)", () => {
+    expect(normalizeMsisdnForHub2("+22177001234")).toBe("22177001234");
+  });
+  it("lenient fallback: empty string passes through as empty string", () => {
+    expect(normalizeMsisdnForHub2("")).toBe("");
   });
 });
