@@ -89,4 +89,15 @@ describe("Hub2Provider.initiatePayment", () => {
       .rejects.toThrow(/Hub2 intent HTTP 500/);
     expect(calls.length).toBe(1);              // exactly one POST — no automatic retry
   });
+
+  it("treats a non-operator metadata.provider (adapter name) as default operator mtn", async () => {
+    const calls = mockFetchSequence([
+      { json: { id: "pi_9", token: "tok_9", status: "payment_required" } },
+      { json: { status: "processing", payments: [{ id: "pay_9", nextAction: null }] } },
+    ]);
+    await new Hub2Provider().initiatePayment({ ...baseInput, metadata: { provider: "hub2" } });
+    const attemptBody = JSON.parse(String(calls[1].init.body));
+    expect(attemptBody.provider).toBe("mtn"); // adapter name must never reach Hub2 as an operator
+  });
+
 });

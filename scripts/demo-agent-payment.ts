@@ -20,7 +20,7 @@
 // Env preamble — MUST be set before importing config (config caches on first
 // getConfig() call). Mirror the test-file pattern exactly.
 // ---------------------------------------------------------------------------
-process.env.WARIMCP_MODE = "mock";
+process.env.WARIMCP_MODE = process.env.WARIMCP_MODE || "mock"; // sandbox when set externally (see SWAP POINT)
 process.env.WARIMCP_TRANSPORT = "http";
 process.env.WARIMCP_PORT = "3000";
 process.env.DATABASE_URL = "postgresql://demo:demo@localhost:5432/demo";
@@ -75,7 +75,7 @@ function makeStubDb() {
     returning: () => {
       const row = pendingValues ?? {
         id: "00000000-0000-0000-0000-000000000042",
-        provider: "mock",
+        provider: "unknown",
         status: "pending",
         paymentUrl: null,
       };
@@ -114,13 +114,15 @@ function chat(speaker: "CLIENT" | "AGENT", msg: string) {
   print(`${prefix}  │ ${msg}`);
 }
 
+const provider = process.env.DEMO_PROVIDER || "mock";
+
 // ---------------------------------------------------------------------------
 // Main demo
 // ---------------------------------------------------------------------------
 async function run() {
   separator("WariMCP — Demo Paiement Agent  [2026-08-05]");
   print("Simulation transport WhatsApp (Meta vérification en attente).");
-  print("provider: mock  (sandbox credentials pending — swap point: 'provider' const in this script)");
+  print(`provider: ${provider}  (mode: ${process.env.WARIMCP_MODE})`);
   print("");
 
   // --- Scene 1: customer conversation ---
@@ -187,13 +189,13 @@ async function run() {
   //   3. Load real sandbox credentials into the environment before running
   //      (HUB2_API_KEY + HUB2_MERCHANT_ID for Hub2, or FedaPay equivalent).
   //      This script deliberately loads no .env; all three steps are needed.
-  const provider = "mock";
+  // provider selected at module scope (DEMO_PROVIDER env — see SWAP POINT)
 
   const result = await handleAuthorizeAndPay(db, {
     mandate,
     signature,
     provider, // <-- SWAP POINT: see comment above — "hub2" | "fedapay" + WARIMCP_MODE=sandbox + creds
-    customerPhone: "+22507000000042",
+    customerPhone: provider === "mock" ? "+22507000000042" : "00000001", // sandbox magic MSISDN (real numbers rejected by Hub2 sandbox)
     customerEmail: undefined,
     returnUrl: "https://boutique.example.ci/merci",
     notifyUrl: "https://boutique.example.ci/webhook/warimcp",
@@ -215,7 +217,22 @@ async function run() {
   // --- Step 4: simulated verify / poll ---
   separator("Étape 4 : Vérification du paiement (simulée)");
   print("En production : poll verify_payment jusqu'à status=completed.");
-  print(`[mock] Transaction ${result.payment.transactionId} → status: ${result.payment.status}`);
+  print(`[${provider}] Transaction ${result.payment.transactionId} → status: ${result.payment.status}`);
+  // Poll the real rail to a terminal status so the recorded transcript shows the
+  // full lifecycle (sandbox auto-resolves the magic MSISDN within seconds).
+  if (provider !== "mock" && result.payment.providerReference) {
+    const { getProvider } = await import("../src/providers/registry.js");
+    const rail = getProvider(provider);
+    for (let i = 0; i < 6; i++) {
+      await new Promise((r) => setTimeout(r, 5000));
+      const v = await rail.verifyPayment(result.payment.providerReference);
+      print(`[${provider}] verify_payment → ${v.status}`);
+      if (v.status === "completed" || v.status === "failed") {
+        Object.assign(getRows()[getRows().length - 1] ?? {}, { status: v.status });
+        break;
+      }
+    }
+  }
   print("");
 
   // --- Step 5: confirmation message ---
@@ -232,7 +249,7 @@ async function run() {
   const storedRows = getRows();
   const row = storedRows[storedRows.length - 1];
 
-  print("Équivalent list_transactions { provider: 'mock' } :");
+  print(`Équivalent list_transactions { provider: '${provider}' } :`);
   print("");
   print(
     [

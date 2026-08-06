@@ -102,7 +102,11 @@ export class Hub2Provider implements BaseProvider {
       throw new Error("Hub2: customerReference must be non-empty (set customerEmail or customerPhone)");
     }
 
-    const provider = (input.metadata?.provider as string) || "mtn";
+    const HUB2_OPERATORS = ["mtn", "orange", "moov", "wave"];
+    // metadata.provider must be a mobile-money OPERATOR; upstream layers sometimes
+    // pass the ADAPTER name ("hub2") here — never forward that to Hub2 (wrong_provider 502).
+    const requested = (input.metadata?.provider as string) || "mtn";
+    const provider = HUB2_OPERATORS.includes(requested) ? requested : "mtn";
 
     // Wave requires https redirect URLs — validate before first network call
     if (provider === "wave") {

@@ -1,10 +1,10 @@
-Script started on 2026-08-05 14:47:19+02:00 [COMMAND="npx tsx scripts/demo-agent-payment.ts" <not executed on terminal>]
+Script started on 2026-08-06 23:12:22+02:00 [COMMAND="npx tsx scripts/demo-agent-payment.ts" <not executed on terminal>]
 [1G[0K⠙[1G[0K
 ────────────────────────────────────────────────────────────
   WariMCP — Demo Paiement Agent  [2026-08-05]
 ────────────────────────────────────────────────────────────
 Simulation transport WhatsApp (Meta vérification en attente).
-provider: mock  (sandbox credentials pending — swap point: 'provider' const in this script)
+provider: hub2  (mode: sandbox)
 
 
 ────────────────────────────────────────────────────────────
@@ -26,14 +26,14 @@ provider: mock  (sandbox credentials pending — swap point: 'provider' const in
   Étape 2 : Génération du mandat signé (côté agent)
 ────────────────────────────────────────────────────────────
 Clé Ed25519 générée en mémoire (éphémère — jetée après la session).
-Fingerprint PEM public : MCowBQYDK2VwAyEAKoeM9NUS…
+Fingerprint PEM public : MCowBQYDK2VwAyEAoTPww6j5…
 Mandat construit :
   merchantRef  : ORDER-20260805-0042
   amount       : 20000 XOF
   currency     : XOF
-  nonce        : nonce-1785934041229-8vp2injwba…
-  expiresAtMs  : 2026-08-05T12:52:21.229Z
-  signature    : tusHEy71ZlOE3Z2whSqfd6Hv0RbBiiT+… (base64 Ed25519)
+  nonce        : nonce-1786050744758-shmigjt80u9…
+  expiresAtMs  : 2026-08-06T21:17:24.758Z
+  signature    : 6XyOnub+xrSVzAPz+Io3OfggzhU5lCoh… (base64 Ed25519)
 
 
 ────────────────────────────────────────────────────────────
@@ -42,17 +42,18 @@ Mandat construit :
 Vérification du mandat contre WARIMCP_TRUSTED_AGENT_KEYS…
 ✓ authorized : true
   transactionId     : 00000000-0000-0000-0000-000000000042
-  providerReference : MOCK-3071d714-878
-  status            : completed
-  paymentUrl        : https://mock.warimcp.local/pay/MOCK-3071d714-878
-  provider          : mock  (mock — sandbox creds pending)
+  providerReference : pi_YqpWrWZ6Y92ZJlme027fJ
+  status            : pending
+  paymentUrl        : 
+  provider          : hub2  (mock — sandbox creds pending)
 
 
 ────────────────────────────────────────────────────────────
   Étape 4 : Vérification du paiement (simulée)
 ────────────────────────────────────────────────────────────
 En production : poll verify_payment jusqu'à status=completed.
-[mock] Transaction 00000000-0000-0000-0000-000000000042 → status: completed
+[hub2] Transaction 00000000-0000-0000-0000-000000000042 → status: pending
+[hub2] verify_payment → completed
 
 
 ────────────────────────────────────────────────────────────
@@ -60,7 +61,7 @@ En production : poll verify_payment jusqu'à status=completed.
 ────────────────────────────────────────────────────────────
 🤖 Agent   │ ✅ Votre paiement de 20 000 XOF a été initié.
 🤖 Agent   │    Référence commande : ORDER-20260805-0042
-🤖 Agent   │    Référence paiement : MOCK-3071d714-878
+🤖 Agent   │    Référence paiement : pi_YqpWrWZ6Y92ZJlme027fJ
 🤖 Agent   │    Vous recevrez une confirmation SMS dans quelques instants.
 👤 Client  │ Merci beaucoup ! 🙏
 
@@ -68,11 +69,11 @@ En production : poll verify_payment jusqu'à status=completed.
 ────────────────────────────────────────────────────────────
   Étape 6 : Ligne de réconciliation (list_transactions)
 ────────────────────────────────────────────────────────────
-Équivalent list_transactions { provider: 'mock' } :
+Équivalent list_transactions { provider: 'hub2' } :
 
 merchantRef                 amount      status      providerReference
 ────────────────────────────────────────────────────────────────────────
-ORDER-20260805-0042         20000 XOF   completed   MOCK-3071d714-878
+ORDER-20260805-0042         20000 XOF   completed   pi_YqpWrWZ6Y92ZJlme027fJ
 
 
 ────────────────────────────────────────────────────────────
@@ -80,12 +81,18 @@ ORDER-20260805-0042         20000 XOF   completed   MOCK-3071d714-878
 ────────────────────────────────────────────────────────────
 Ce qui est simulé  : transport (WhatsApp), DB (stub in-memory), provider (mock).
 Ce qui est réel    : crypto Ed25519, vérification de mandat, flux authorize_and_pay.
-Changements pour production :
-  1. Remplacer provider 'mock' → 'hub2' (ou 'fedapay') quand creds sandbox disponibles.
-  2. Remplacer le stub DB par la vraie connection Postgres (DATABASE_URL).
-  3. Activer le transport MCP réel (stdio/http) à la place du import direct.
-  4. BCEAO 001-01-2024 : flag.authorized doit rester OFF en production réelle
+Changements pour sandbox (3 étapes — pas une seule) :
+  1. Changer provider 'mock' → 'hub2' (ou 'fedapay') dans ce fichier.
+  2. Retirer/remplacer process.env.WARIMCP_MODE='mock' → WARIMCP_MODE=sandbox
+     (sans ça, registry.ts route vers mock indépendamment du provider choisi).
+  3. Charger les vrais creds sandbox dans l'env (HUB2_API_KEY, HUB2_MERCHANT_ID).
+     Ce script ne charge aucun .env — les 3 étapes sont nécessaires.
+
+Changements supplémentaires pour production :
+  4. Remplacer le stub DB par la vraie connection Postgres (DATABASE_URL).
+  5. Activer le transport MCP réel (stdio/http) à la place du import direct.
+  6. BCEAO 001-01-2024 : flag.authorized doit rester OFF en production réelle
      jusqu'à la levée des obligations réglementaires. Voir ROADMAP.md §Phase 2.
 
 [1G[0K⠙[1G[0K
-Script done on 2026-08-05 14:47:21+02:00 [COMMAND_EXIT_CODE="0"]
+Script done on 2026-08-06 23:12:30+02:00 [COMMAND_EXIT_CODE="0"]

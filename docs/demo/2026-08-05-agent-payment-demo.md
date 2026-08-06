@@ -1,3 +1,13 @@
+> **UPDATE 2026-08-06 — real rail.** The recording in `demo-terminal.txt` now runs
+> against the REAL Hub2 sandbox (owner-authorized credentials): intent
+> `pi_YqpWrWZ6Y92ZJlme027fJ`, 20 000 XOF, operator mtn on the sandbox magic
+> MSISDN, `verify_payment` polled to `completed`. Real: Hub2 rail, ed25519
+> mandate verification, status lifecycle. Still simulated: WhatsApp transport
+> (Meta verification pending) and the in-memory db stub. The earlier mock-only
+> recording is superseded. Sandbox smoke evidence:
+> `docs/research/2026-08-06-hub2-sandbox-smoke.md`. Webhook HMAC capture still
+> requires a public endpoint — remaining item for the vegeta/trunks gates.
+
 # WariMCP Agent Payment Demo — 2026-08-05
 
 **Track 2 acceptance artifact** — recorded merchant demo for the `authorize_and_pay` bridge.
